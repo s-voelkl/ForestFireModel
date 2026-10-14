@@ -8,6 +8,8 @@ A high-performance, client-side, zero-dependency wildfire simulation extending t
 
 ![Simulation of the Multi-Layer Wildfire Cellular Automaton](./assets/images/02-live-game-canyon.png)
 
+**Demo Videos can be found here:** [Assets > Videos](./assets/videos)
+
 ---
 
 ## 🎮 What is this Simulation?
@@ -39,6 +41,11 @@ The application is an interactive, zero-dependency browser simulation designed f
   - 4-tier incandescent flame temperature ramp (Smoldering Crimson $\to$ Bright Red $\to$ Orange $\to$ White-Hot).
 - **Consolidated Real-Time Telemetry:** Live rolling multi-curve sparkline tracking Canopy Biomass, Active Fires, Pioneer Grass, and Ash Cooldown in the footer strip.
 - **Tactical God-Mode Toolkit:** 6 specialized brushes (`Ignite`, `Firebreak`, `Water Drop`, `Reforest`, `Add Lake`, `Drain Lake`) with adjustable radius ($1 \dots 10\text{ px}$).
+
+<!-- make images not that wide -->
+<img src="assets/images/03-map-thermal.png" alt="Thermal Map" style="width: 400px;">
+<img src="assets/images/04-map-moisture.png" alt="Moisture Map" style="width: 400px;">
+<img src="assets/images/05-map-topography.png" alt="Topo Map" style="width: 400px;">
 
 ---
 
@@ -169,7 +176,7 @@ python -m http.server 8000
 | **Cell Inspector** | Hover | Real-time tooltip with coordinates, state, elevation, moisture & fuel |
 | **CSV Telemetry Export** | Button | Download RFC 4180-compliant `.csv` dataset of the run |
 
-![God-mode Brushes](./assets/videos/07-god-mode-brushes.mp4)
+<img src="assets/images/06-parameter-settings.png" alt="Parameter Settings" style="width: 250px;">
 
 ---
 
