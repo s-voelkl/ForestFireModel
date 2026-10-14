@@ -42,9 +42,13 @@ The application is an interactive, zero-dependency browser simulation designed f
 - **Consolidated Real-Time Telemetry:** Live rolling multi-curve sparkline tracking Canopy Biomass, Active Fires, Pioneer Grass, and Ash Cooldown in the footer strip.
 - **Tactical God-Mode Toolkit:** 6 specialized brushes (`Ignite`, `Firebreak`, `Water Drop`, `Reforest`, `Add Lake`, `Drain Lake`) with adjustable radius ($1 \dots 10\text{ px}$).
 
-<!-- make images not that wide -->
+### Map Types
+
+Thermal Map:
 <img src="assets/images/03-map-thermal.png" alt="Thermal Map" style="width: 400px;">
+Moisture Map:
 <img src="assets/images/04-map-moisture.png" alt="Moisture Map" style="width: 400px;">
+Topography Map:
 <img src="assets/images/05-map-topography.png" alt="Topo Map" style="width: 400px;">
 
 ---
