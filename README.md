@@ -45,12 +45,15 @@ The application is an interactive, zero-dependency browser simulation designed f
 ### Map Types
 
 Thermal Map:
+
 <img src="assets/images/03-map-thermal.png" alt="Thermal Map" style="width: 400px;">
 
 Moisture Map:
+
 <img src="assets/images/04-map-moisture.png" alt="Moisture Map" style="width: 400px;">
 
 Topography Map:
+
 <img src="assets/images/05-map-topography.png" alt="Topo Map" style="width: 400px;">
 
 ---
