@@ -38,4 +38,4 @@ next-env.d.ts
 
 # additional
 output/**
-assets/**
+# assets/**
