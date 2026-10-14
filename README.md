@@ -83,21 +83,23 @@ Implementation progress mapped against the Software Requirements Specification i
 - Normalized slope exponential multiplier ($k_s = 2.5$) accelerating uphill spread.
 - Screen-space anisotropic wind vector model with directional dot-product influence and long-range ember spotting ($v \ge 2.5$).
 
-### Phase 4: Presets Matrix, View Modes, HUD Overlays & Hotkeys — ✅ Complete
+### Phase 4: Presets Matrix, View Modes, HUD Overlays, Brushes & Hotkeys — ✅ Complete
 
 - 4 calibrated demonstration scenarios (`SOC`, `GALE_FORCE_CANYON`, `CATASTROPHIC_DROUGHT`, `TACTICAL_DEFENSE`).
 - 4 switchable layer modes (`Biomass`, `Thermal`, `Moisture`, `Topography`).
 - Dual-density HUD formatting `[Count (Percentage%)]` for Active Fires, Forest, Grass, and Ash.
 - Interactive polar SVG Wind Rose dial controller with direct pointer manipulation.
+- Interactive God-Mode brushes (`Ignite`, `Firebreak Bulldozer`, `Aerial Water Drop`, `Reforest`) with variable radius ($1 \dots 5\text{ px}$) and hotkey cycling (`KeyB`).
+- Sub-pixel DPI-aware canvas pointer re-projection and dynamic hover Cell Inspector HUD overlay.
 - Responsive auto-zoom fit (`object-contain`) and blur-free nearest-neighbor pixelated canvas scaling.
 - Vertically scrollable parameters sidebar (`h-screen overflow-hidden` parent layout containment).
 
-### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter — 🟡 In Progress
+### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter — ✅ Complete
 
-- Headless 500-tick performance benchmark (`KeyT`) sustaining **300+ TPS** (✅ Complete).
-- Zero-allocation circular metric ring buffer (Pending).
-- Rolling sparkline trend mini-canvas (Pending).
-- RFC 4180 CSV serializer & browser Blob downloader (Pending).
+- Headless 500-tick performance benchmark (`KeyT`) sustaining **300+ TPS**.
+- Zero-allocation pre-allocated circular metric ring buffer (`MetricBuffer`, 5,000 capacity).
+- Real-time rolling dual-curve sparkline trend mini-canvas (Canopy Biomass vs. Active Fires).
+- Full RFC 4180 CSV serializer & programmatic browser Blob downloader.
 
 ---
 
@@ -136,11 +138,14 @@ python -m http.server 8000
 | **Play / Pause** | `Space` | Toggle automatic simulation tick advancement |
 | **Step Tick** | `KeyS` | Step forward exactly 1 tick while paused |
 | **Reset Simulation** | `KeyR` | Re-seed and re-generate world using active preset |
+| **Cycle Brush** | `KeyB` | Cycle God-mode brush (Ignite $\to$ Firebreak $\to$ Water Drop $\to$ Reforest) |
 | **Benchmark** | `KeyT` | Run 500 headless steps and display TPS performance |
 | **View Modes** | `1` - `4` | `1`: Biomass, `2`: Thermal, `3`: Moisture, `4`: Topography |
 | **Resolution Toggle** | Button | Switch between Standard ($160 \times 100$) and High-Res ($320 \times 200$) |
 | **Wind Dial** | Click & Drag | Interactive polar dial to adjust wind heading and speed |
-| **Manual Ignition** | Buttons | Spark fire at grid center or trigger a random lightning strike |
+| **God-Mode Brushes** | Click & Drag | Paint on canvas to ignite, clear firebreaks, drop water, or reforest |
+| **Cell Inspector** | Hover | Real-time tooltip with coordinates, state, elevation, moisture & fuel |
+| **CSV Telemetry Export** | Button | Download RFC 4180-compliant `.csv` dataset of the run |
 
 ---
 
@@ -167,7 +172,12 @@ ForestFireModel/
     ├── render/
     │   ├── ColorPalettes.js     # Precomputed 32-bit ABGR LUTs & flame temperature ramps
     │   └── ViewportRenderer.js  # Direct Uint32Array ImageData blitter
+    ├── telemetry/
+    │   ├── MetricBuffer.js      # Zero-allocation ring buffer for high-frequency telemetry
+    │   ├── SparklineRenderer.js # Rolling dual-curve sparkline mini-canvas
+    │   └── CSVExporter.js       # RFC 4180 CSV serializer & Blob downloader
     ├── ui/
+    │   ├── BrushController.js   # God-mode brush tools, radius controls & cycle switching
     │   └── DashboardBridge.js   # Alpine.js reactive root store & detached engine handles
     └── styles/
         └── custom.css           # Nearest-neighbor pixelated rules & custom dark scrollbar

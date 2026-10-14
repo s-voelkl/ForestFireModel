@@ -276,13 +276,69 @@
             :width="gridWidth"
             :height="gridHeight"
             style="aspect-ratio: 16/10"
+            @pointerdown="handleCanvasPointerDown($event)"
+            @pointermove="handleCanvasPointerMove($event)"
+            @pointerup="handleCanvasPointerUp($event)"
+            @pointerleave="handleCanvasPointerLeave()"
           >
           </canvas>
+
+          <!-- Interactive Cell Inspector HUD Overlay -->
+          <div
+            x-show="inspector.visible"
+            class="fixed pointer-events-none z-30 bg-slate-900/95 border border-slate-700/80 rounded shadow-xl px-2.5 py-1.5 text-[11px] font-mono text-slate-200 transition-opacity"
+            :style="'left: ' + (inspector.screenX + 16) + 'px; top: ' + (inspector.screenY + 16) + 'px;'"
+          >
+            <div
+              class="flex items-center gap-1.5 font-semibold text-slate-100 border-b border-slate-800 pb-1 mb-1"
+            >
+              <span
+                class="text-amber-400"
+                x-text="'[' + inspector.x + ', ' + inspector.y + ']'"
+              ></span>
+              <span
+                class="px-1.5 py-0.2 rounded text-[10px]"
+                :class="{
+                  'bg-emerald-950 text-emerald-300 border border-emerald-800': inspector.stateName === 'FOREST',
+                  'bg-lime-950 text-lime-300 border border-lime-800': inspector.stateName === 'GRASS',
+                  'bg-rose-950 text-rose-300 border border-rose-800': inspector.stateName === 'BURNING',
+                  'bg-slate-800 text-slate-300 border border-slate-700': inspector.stateName === 'ASH' || inspector.stateName === 'EMPTY',
+                  'bg-blue-950 text-blue-300 border border-blue-800': inspector.stateName === 'WATER'
+                }"
+                x-text="inspector.stateName"
+              ></span>
+            </div>
+            <div
+              class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-slate-400"
+            >
+              <div>
+                Elev (E):
+                <span
+                  class="text-slate-200 font-mono-nums"
+                  x-text="inspector.elevation.toFixed(2)"
+                ></span>
+              </div>
+              <div>
+                Moist (μ):
+                <span
+                  class="text-cyan-300 font-mono-nums"
+                  x-text="inspector.moisture.toFixed(2)"
+                ></span>
+              </div>
+              <div x-show="inspector.fuel > 0">
+                Fuel/Cool:
+                <span
+                  class="text-amber-300 font-mono-nums"
+                  x-text="inspector.fuel"
+                ></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Bottom Status & Telemetry Strip -->
         <footer
-          class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-400 font-mono-nums shrink-0"
+          class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-400 font-mono-nums shrink-0 gap-3"
         >
           <div class="flex items-center gap-4">
             <span
@@ -295,16 +351,45 @@
               x-text="benchmarkResult"
             ></span>
           </div>
-          <div class="flex items-center gap-2 text-xs text-slate-400">
-            <span class="text-slate-500">Created by:</span>
-            <a
-              href="https://simonvoelkl.de"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-amber-400 hover:text-amber-300 font-medium hover:underline transition"
+
+          <!-- Real-time Sparkline HUD Mini-Canvas -->
+          <div
+            class="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1 rounded border border-slate-800"
+          >
+            <div
+              class="flex flex-col text-[10px] leading-tight text-right select-none font-sans"
             >
-              Simon Völkl
-            </a>
+              <span class="text-emerald-400">Canopy</span>
+              <span class="text-rose-400">Fires</span>
+            </div>
+            <canvas
+              id="sparklineCanvas"
+              width="150"
+              height="28"
+              class="w-[150px] h-[28px] bg-slate-900 rounded"
+            ></canvas>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              @click="exportTelemetryCSV()"
+              class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 transition flex items-center gap-1.5 font-medium"
+              title="Download RFC 4180 CSV telemetry dataset"
+            >
+              📥 Export CSV
+            </button>
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span class="text-slate-500">Created by:</span>
+              <a
+                href="https://simonvoelkl.de"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-amber-400 hover:text-amber-300 font-medium hover:underline transition"
+              >
+                Simon Völkl
+              </a>
+            </div>
           </div>
         </footer>
       </main>
@@ -650,12 +735,79 @@
           </div>
         </div>
 
+        <!-- God-Mode Interactive Brushes -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2
+              class="text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              God-Mode Brushes
+            </h2>
+            <span class="text-[10px] text-slate-500 font-mono"
+              >KeyB to Cycle</span
+            >
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 mb-2.5">
+            <button
+              type="button"
+              @click="setBrushTool('ignite')"
+              :class="activeBrushTool === 'ignite' ? 'bg-rose-500/25 text-rose-300 border-rose-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              🔥 Ignite
+            </button>
+            <button
+              type="button"
+              @click="setBrushTool('firebreak')"
+              :class="activeBrushTool === 'firebreak' ? 'bg-amber-500/25 text-amber-300 border-amber-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              🚧 Firebreak
+            </button>
+            <button
+              type="button"
+              @click="setBrushTool('waterDrop')"
+              :class="activeBrushTool === 'waterDrop' ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              💧 Water Drop
+            </button>
+            <button
+              type="button"
+              @click="setBrushTool('reforest')"
+              :class="activeBrushTool === 'reforest' ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              🌲 Reforest
+            </button>
+          </div>
+
+          <!-- Brush Radius Slider -->
+          <div
+            class="bg-slate-950/60 p-2.5 rounded border border-slate-800 text-xs font-mono"
+          >
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-400">Brush Radius:</span>
+              <span class="text-amber-300" x-text="brushRadius + ' px'"></span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              x-model.number="brushRadius"
+              @input="setBrushRadius(brushRadius)"
+              class="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+            />
+          </div>
+        </div>
+
         <!-- Interactive Ignition Actions -->
         <div>
           <h2
             class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
           >
-            Manual Ignition
+            Quick Ignition
           </h2>
           <div class="grid grid-cols-2 gap-2">
             <button
@@ -742,7 +894,13 @@
     <script src="src/render/ColorPalettes.js"></script>
     <script src="src/render/ViewportRenderer.js"></script>
 
-    <!-- 4. UI Presentation & Dashboard Bridge -->
+    <!-- 4. Telemetry & Data Science Pipeline -->
+    <script src="src/telemetry/MetricBuffer.js"></script>
+    <script src="src/telemetry/CSVExporter.js"></script>
+    <script src="src/telemetry/SparklineRenderer.js"></script>
+
+    <!-- 5. UI Presentation & Dashboard Bridge -->
+    <script src="src/ui/BrushController.js"></script>
     <script src="src/ui/DashboardBridge.js"></script>
   </body>
 </html>

@@ -10,6 +10,9 @@ let gEngine = null;
 let gEnv = null;
 let gPrng = null;
 let gNoise = null;
+let gMetricBuffer = null;
+let gSparklineRenderer = null;
+let gBrushController = null;
 
 function wildfireApp() {
   const simCfg = window.SIM_CONFIG || (typeof SIM_CONFIG !== "undefined" ? SIM_CONFIG : null);
@@ -45,6 +48,24 @@ function wildfireApp() {
     ashCount: 0,
     ashPercent: 0,
     burnedCumulative: 0,
+
+    // God-mode Brush State
+    activeBrushTool: "ignite",
+    brushRadius: 2,
+    brushInfo: typeof BrushController !== "undefined" ? BrushController.TOOL_INFO : {},
+
+    // Cell Inspector State
+    inspector: {
+      visible: false,
+      x: 0,
+      y: 0,
+      stateName: "EMPTY",
+      elevation: 0.0,
+      moisture: 0.0,
+      fuel: 0,
+      screenX: 0,
+      screenY: 0,
+    },
 
     // Parameter slider bindings
     pGrass: presetsCfg ? presetsCfg.SOC.pGrass : 0.025,
@@ -84,11 +105,25 @@ function wildfireApp() {
         gPrng,
       );
 
+      // Instantiate Telemetry & Brush subsystems
+      const bufferCap = simCfg ? simCfg.PHYSICS.METRIC_BUFFER_CAPACITY : 5000;
+      gMetricBuffer = new MetricBuffer(bufferCap);
+
+      const sparklineCanvas = document.getElementById("sparklineCanvas");
+      if (sparklineCanvas) {
+        gSparklineRenderer = new SparklineRenderer(sparklineCanvas);
+      }
+
+      gBrushController = new BrushController(this.activeBrushTool, this.brushRadius);
+      this.brushInfo = BrushController.TOOL_INFO;
+
       // Generate procedural terrain & populate initial biomass
       this.generateWorld();
 
       this.updateTelemetryHUD();
       this.renderActiveLayer();
+      this.logTelemetryRecord();
+      this.renderSparkline();
 
       // Initialize decoupled animation loop
       this.lastFrameTime = performance.now();
@@ -106,6 +141,160 @@ function wildfireApp() {
       this.syncParamsToEngine();
       gEngine.bindEnvironment(gEnv.elevationGrid, gEnv.moistureGrid);
       gEngine.populateVegetation();
+      if (gMetricBuffer) gMetricBuffer.clear();
+      this.logTelemetryRecord();
+      this.renderSparkline();
+    },
+
+    // Record instantaneous simulation telemetry into ring buffer (Zero GC)
+    logTelemetryRecord() {
+      if (!gMetricBuffer || !gEngine || !gEnv) return;
+      const now = Date.now();
+      const meanM = gEngine.getMeanMoisture();
+      const waterCount = gEngine.totalCells - (gEngine.emptyCount + gEngine.grassCount + gEngine.forestCount + gEngine.activeFires + gEngine.ashCount);
+      gMetricBuffer.pushRecord(
+        gEngine.tick,
+        now,
+        this.activeSeed,
+        gEngine.emptyCount,
+        gEngine.grassCount,
+        gEngine.forestCount,
+        gEngine.activeFires,
+        gEngine.ashCount,
+        waterCount > 0 ? waterCount : 0,
+        meanM,
+        gEnv.windSpeed,
+        Math.round(gEnv.windHeadingDeg),
+        gEngine.burnedCumulative,
+      );
+    },
+
+    renderSparkline() {
+      if (!gSparklineRenderer || !gMetricBuffer) return;
+      const count = simCfg && simCfg.UI ? simCfg.UI.SPARKLINE_TRAILING_TICKS : 150;
+      const recent = gMetricBuffer.getRecent(count);
+      gSparklineRenderer.draw(recent, this.gridWidth * this.gridHeight);
+    },
+
+    // God-mode Brush Selection & Radius Controls
+    setBrushTool(tool) {
+      this.activeBrushTool = tool;
+      if (gBrushController) gBrushController.setTool(tool);
+    },
+
+    setBrushRadius(r) {
+      this.brushRadius = r;
+      if (gBrushController) gBrushController.setRadius(r);
+    },
+
+    cycleBrushTool() {
+      if (gBrushController) {
+        this.activeBrushTool = gBrushController.cycleTool();
+      }
+    },
+
+    // Accurate pointer coordinate re-projection: maps client viewport -> grid index
+    getGridCoordinates(e) {
+      const canvas = document.getElementById("viewportCanvas");
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        return null;
+      }
+
+      const gx = Math.floor(((clientX - rect.left) * this.gridWidth) / rect.width);
+      const gy = Math.floor(((clientY - rect.top) * this.gridHeight) / rect.height);
+      const clampedX = Math.max(0, Math.min(this.gridWidth - 1, gx));
+      const clampedY = Math.max(0, Math.min(this.gridHeight - 1, gy));
+
+      return {
+        x: clampedX,
+        y: clampedY,
+        screenX: clientX,
+        screenY: clientY,
+      };
+    },
+
+    handleCanvasPointerDown(e) {
+      if (!gBrushController || !gEngine) return;
+      const coords = this.getGridCoordinates(e);
+      if (!coords) return;
+
+      gBrushController.isDrawing = true;
+      gBrushController.apply(gEngine, gEnv, coords.x, coords.y);
+      this.updateTelemetryHUD();
+      this.renderActiveLayer();
+      this.updateInspector(coords.x, coords.y, coords.screenX, coords.screenY);
+    },
+
+    handleCanvasPointerMove(e) {
+      const coords = this.getGridCoordinates(e);
+      if (!coords) {
+        this.inspector.visible = false;
+        return;
+      }
+
+      // Update Inspector Tooltip
+      this.updateInspector(coords.x, coords.y, coords.screenX, coords.screenY);
+
+      // Apply brush while dragging
+      if (gBrushController && (gBrushController.isDrawing || e.buttons === 1)) {
+        gBrushController.apply(gEngine, gEnv, coords.x, coords.y);
+        this.updateTelemetryHUD();
+        this.renderActiveLayer();
+      }
+    },
+
+    handleCanvasPointerUp(e) {
+      if (gBrushController) {
+        gBrushController.isDrawing = false;
+      }
+    },
+
+    handleCanvasPointerLeave() {
+      if (gBrushController) {
+        gBrushController.isDrawing = false;
+      }
+      this.inspector.visible = false;
+    },
+
+    updateInspector(cellX, cellY, screenX, screenY) {
+      if (!gEngine || !gEnv) return;
+      const idx = cellY * this.gridWidth + cellX;
+      const s = gEngine.currentGrid[idx];
+      const STATE = SIM_CONFIG.CELL_STATE;
+
+      let sName = "EMPTY";
+      if (s === STATE.GRASS) sName = "GRASS";
+      else if (s === STATE.FOREST) sName = "FOREST";
+      else if (s === STATE.BURNING) sName = "BURNING";
+      else if (s === STATE.ASH) sName = "ASH";
+      else if (s === STATE.WATER) sName = "WATER";
+
+      this.inspector.x = cellX;
+      this.inspector.y = cellY;
+      this.inspector.stateName = sName;
+      this.inspector.elevation = gEnv.elevationGrid ? gEnv.elevationGrid[idx] : 0.0;
+      this.inspector.moisture = gEnv.moistureGrid ? gEnv.moistureGrid[idx] : 0.0;
+      this.inspector.fuel = gEngine.fuelGrid ? gEngine.fuelGrid[idx] : 0;
+      this.inspector.screenX = screenX;
+      this.inspector.screenY = screenY;
+      this.inspector.visible = true;
+    },
+
+    exportTelemetryCSV() {
+      if (!gMetricBuffer) return;
+      const records = gMetricBuffer.getAll();
+      CSVExporter.export(records, this.activeSeed, this.tickCount);
     },
 
     // Handle SVG Wind Rose polar pointer events
@@ -124,10 +313,11 @@ function wildfireApp() {
       if (rad < 0) rad += 2 * Math.PI;
       this.windHeadingDeg = Math.round((rad * 180.0) / Math.PI) % 360;
 
-      // Speed magnitude: distance from center scaled to [0.0, 8.0 m/s]
+      // Speed magnitude: distance from center scaled to [0.0, maxWindSpeed m/s]
       const radiusPx = rect.width / 2;
       const dist = Math.min(radiusPx, Math.hypot(dx, dy));
-      const rawSpeed = (dist / radiusPx) * 8.0;
+      const maxSpeed = simCfg && simCfg.PHYSICS ? simCfg.PHYSICS.MAX_WIND_SPEED : 8.0;
+      const rawSpeed = (dist / radiusPx) * maxSpeed;
       this.windSpeed = Math.round(rawSpeed * 10) / 10;
 
       this.updateParams();
@@ -216,8 +406,9 @@ function wildfireApp() {
             this.renderActiveLayer();
           } else {
             const speedMult = parseFloat(this.playbackSpeed) || 1.0;
-            // Target: 30 TPS baseline * speedMultiplier
-            const targetTickMs = 1000 / (30 * speedMult);
+            // Target: baseline TPS * speedMultiplier
+            const baseTps = simCfg && simCfg.UI ? simCfg.UI.TPS_BASELINE_PLAYBACK : 30;
+            const targetTickMs = 1000 / (baseTps * speedMult);
             this.accumulatedTime += deltaMs;
 
             let stepped = false;
@@ -235,6 +426,8 @@ function wildfireApp() {
             if (stepped) {
               this.updateTelemetryHUD();
               this.renderActiveLayer();
+              this.logTelemetryRecord();
+              this.renderSparkline();
             }
           }
         }
@@ -260,6 +453,8 @@ function wildfireApp() {
         gEnv.updateMoisture(gEngine.currentGrid, gEngine.neighborOffsets);
       this.updateTelemetryHUD();
       this.renderActiveLayer();
+      this.logTelemetryRecord();
+      this.renderSparkline();
     },
 
     updateSpeed(speed) {
@@ -362,6 +557,7 @@ function wildfireApp() {
       gRenderer.resize(this.gridWidth, this.gridHeight);
       gEnv.resize(this.gridWidth, this.gridHeight);
       gEngine.resize(this.gridWidth, this.gridHeight);
+      if (gMetricBuffer) gMetricBuffer.clear();
       this.reseed(this.activeSeed);
     },
 
@@ -386,6 +582,8 @@ function wildfireApp() {
 
       this.updateTelemetryHUD();
       this.renderActiveLayer();
+      this.logTelemetryRecord();
+      this.renderSparkline();
       this.isPlaying = wasPlaying;
     },
 
@@ -416,6 +614,9 @@ function wildfireApp() {
         case "Digit4":
           this.setMode(RENDER_CONFIG.VIEW_MODES.TOPO);
           break;
+        case "KeyB":
+          this.cycleBrushTool();
+          break;
         case "KeyT":
           this.runBenchmark();
           break;
@@ -432,6 +633,9 @@ if (typeof window !== "undefined") {
   window.gEnv = gEnv;
   window.gPrng = gPrng;
   window.gNoise = gNoise;
+  window.gMetricBuffer = gMetricBuffer;
+  window.gSparklineRenderer = gSparklineRenderer;
+  window.gBrushController = gBrushController;
 }
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -441,5 +645,8 @@ if (typeof module !== "undefined" && module.exports) {
     gEnv,
     gPrng,
     gNoise,
+    gMetricBuffer,
+    gSparklineRenderer,
+    gBrushController,
   };
 }

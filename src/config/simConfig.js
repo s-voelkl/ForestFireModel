@@ -34,6 +34,8 @@ const SIM_CONFIG = Object.freeze({
     MOISTURE_MAX: 0.95,
     MOISTURE_BASE: 0.6,
     MOISTURE_ELEV_FACTOR: 0.5,
+    FOREST_MOISTURE_BIAS_BASE: 0.8,
+    FOREST_MOISTURE_BIAS_SCALE: 0.4,
   }),
   PHYSICS: Object.freeze({
     SLOPE_SENSITIVITY_KS: 2.5,
@@ -54,6 +56,12 @@ const SIM_CONFIG = Object.freeze({
     SLOPE_MULT_MAX: 3.5,
     WIND_MULT_MIN: 0.05,
     INV_SQRT2: 0.70710678,
+    MAX_WIND_SPEED: 8.0,
+    TRANSMISSION_CLAMP_MAX: 0.999,
+  }),
+  UI: Object.freeze({
+    TPS_BASELINE_PLAYBACK: 30,
+    SPARKLINE_TRAILING_TICKS: 150,
   }),
 });
 

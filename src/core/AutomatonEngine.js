@@ -122,7 +122,11 @@ class AutomatonEngine {
         const roll = prng.next();
         const m = moist ? moist[i] : 0.5;
         // Higher moisture slightly boosts mature forest probability
-        const forestThresh = initialForestProb * (0.8 + 0.4 * m);
+        const terrainCfg = SIM_CONFIG.TERRAIN;
+        const forestThresh =
+          initialForestProb *
+          (terrainCfg.FOREST_MOISTURE_BIAS_BASE +
+            terrainCfg.FOREST_MOISTURE_BIAS_SCALE * m);
 
         if (roll < forestThresh) {
           curr[i] = STATE.FOREST;
@@ -166,17 +170,106 @@ class AutomatonEngine {
   }
 
   igniteCluster(centerX, centerY, radius = 2) {
+    this.applyBrush(centerX, centerY, radius, "ignite", null);
+  }
+
+  // God-mode brush applications: strictly clamps to interior boundaries
+  applyBrush(centerX, centerY, radius, tool, env) {
+    const STATE = SIM_CONFIG.CELL_STATE;
+    const TIMERS = SIM_CONFIG.TIMERS;
+    const r2 = radius * radius;
+    const w = this.width;
+    const h = this.height;
+    const curr = this.currentGrid;
+    const fuel = this.fuelGrid;
+    const moist = this.moistureGrid;
+
     for (let dy = -radius; dy <= radius; dy++) {
       const py = centerY + dy;
-      if (py <= 0 || py >= this.height - 1) continue;
+      if (py <= 0 || py >= h - 1) continue;
       for (let dx = -radius; dx <= radius; dx++) {
         const px = centerX + dx;
-        if (px <= 0 || px >= this.width - 1) continue;
-        if (dx * dx + dy * dy <= radius * radius) {
-          this.igniteCell(px, py);
+        if (px <= 0 || px >= w - 1) continue;
+        if (dx * dx + dy * dy > r2) continue;
+
+        const i = py * w + px;
+        const s = curr[i];
+
+        switch (tool) {
+          case "ignite": {
+            if (s === STATE.FOREST) {
+              curr[i] = STATE.BURNING;
+              fuel[i] = TIMERS.FOREST_BURN_TICKS;
+              this.activeFires++;
+              this.burnedCumulative++;
+              this.forestCount--;
+            } else if (s === STATE.GRASS) {
+              curr[i] = STATE.BURNING;
+              fuel[i] = TIMERS.GRASS_BURN_TICKS;
+              this.activeFires++;
+              this.burnedCumulative++;
+              this.grassCount--;
+            }
+            break;
+          }
+
+          case "firebreak": {
+            // Clears combustible/burning/ash cells to EMPTY and zeroes fuel
+            if (s !== STATE.WATER && s !== STATE.EMPTY) {
+              if (s === STATE.BURNING) this.activeFires--;
+              else if (s === STATE.FOREST) this.forestCount--;
+              else if (s === STATE.GRASS) this.grassCount--;
+              else if (s === STATE.ASH) this.ashCount--;
+              curr[i] = STATE.EMPTY;
+              fuel[i] = 0;
+              this.emptyCount++;
+            }
+            break;
+          }
+
+          case "waterDrop": {
+            // Saturates moisture to 1.0 and extinguishes burning fronts
+            if (moist) moist[i] = 1.0;
+            if (s === STATE.BURNING) {
+              this.activeFires--;
+              curr[i] = STATE.EMPTY;
+              fuel[i] = 0;
+              this.emptyCount++;
+            }
+            break;
+          }
+
+          case "reforest": {
+            // Restores mature FOREST canopy on non-water terrain
+            if (s !== STATE.WATER && s !== STATE.FOREST) {
+              if (s === STATE.BURNING) this.activeFires--;
+              else if (s === STATE.GRASS) this.grassCount--;
+              else if (s === STATE.EMPTY) this.emptyCount--;
+              else if (s === STATE.ASH) this.ashCount--;
+              curr[i] = STATE.FOREST;
+              fuel[i] = 0;
+              this.forestCount++;
+              if (moist && env) {
+                moist[i] = env.baselineMoisture;
+              }
+            }
+            break;
+          }
         }
       }
     }
+  }
+
+  // Zero-allocation mean moisture calculation across all cells
+  getMeanMoisture() {
+    if (!this.moistureGrid) return 0.5;
+    const moist = this.moistureGrid;
+    const total = this.totalCells;
+    let sum = 0.0;
+    for (let i = 0; i < total; i++) {
+      sum += moist[i];
+    }
+    return total > 0 ? sum / total : 0.0;
   }
 
   // Zero-allocation discrete simulation step
@@ -336,7 +429,9 @@ class AutomatonEngine {
                   slopeMult *
                   windMult *
                   moistureFactor;
-                if (pTransmission > 0.999) pTransmission = 0.999;
+                if (pTransmission > PHYSICS.TRANSMISSION_CLAMP_MAX) {
+                  pTransmission = PHYSICS.TRANSMISSION_CLAMP_MAX;
+                }
                 if (pTransmission < 0.0) pTransmission = 0.0;
 
                 probNoIgnition *= 1.0 - pTransmission;
