@@ -202,7 +202,14 @@ stateDiagram-v2
     $$x_{\text{grid}} = \left\lfloor (e.\text{clientX} - \text{rect}.\text{left}) \cdot \frac{W_{\text{grid}}}{\text{rect}.\text{width}} \right\rfloor, \quad y_{\text{grid}} = \left\lfloor (e.\text{clientY} - \text{rect}.\text{top}) \cdot \frac{H_{\text{grid}}}{\text{rect}.\text{height}} \right\rfloor$$
 * **REQ-UI-05 (Live Cell-Inspector HUD, On-Canvas Overlay & Realtime Sparklines):**
   * Hovering the cursor over the canvas displays a localized inspector tooltip detailing: $(x, y)$, State, Elevation ($E$), Moisture ($\mu$), and Fuel Countdown.
-  * A top-left canvas translucent HUD overlay renders key indicators: `Tick`, `Active Fires`, `Biomass %`, and a circular wind directional compass arrow.
+  * A top-left canvas translucent HUD overlay renders key indicators formatted as `[Total number (Percentage%)]` for high information density:
+    * `FPS`: Real-time animation frame rate.
+    * `TICK`: Monotonic iteration counter.
+    * `FIRES`: Active burning cells and current grid percentage: `activeFiresCount (firesPercent%)`.
+    * `FOREST`: Forest biomass cell count and combustible percentage: `forestCount (forestPercent%)`.
+    * `GRASS`: Grass pioneer vegetation cell count and combustible percentage: `grassCount (grassPercent%)`.
+    * `ASH`: Post-combustion ash cooldown cells and combustible percentage: `ashCount (ashPercent%)`.
+    * `MODE`: Currently active render view mode (`BIOMASS`, `THERMAL`, `MOISTURE`, `TOPO`).
   * A lightweight mini-canvas sparkline renders rolling trends of Active Burning Cells vs. Healthy Forest Biomass over the trailing 150 ticks.
 * **REQ-UI-06 (Interactive Wind Controller):**
   * An intuitive circular indicator/dial allowing direct click-and-drag manipulation of wind heading $\theta$ and speed magnitude $v$.
@@ -256,7 +263,8 @@ stateDiagram-v2
   * Must sustain steady $\ge 60$ FPS at $160 \times 100$ and $\ge 50$ FPS at $320 \times 200$ during heavy combustion fronts on standard hardware.
   * Rendering MUST write directly into an `ImageData` 32-bit pixel buffer (`Uint32Array` view) blitted via `ctx.putImageData()`, completely bypassing slow vector path operations (`ctx.fillRect()`).
   * Color selection MUST utilize precomputed 32-bit Look-Up Tables (`Uint32Array` LUTs in little-endian `0xAABBGGRR` byte order). Burning cells interpolate dynamically across a 4-tier flame ramp based on remaining fuel countdown.
-  * The canvas MUST utilize CSS `image-rendering: pixelated;` to maintain crisp, artifact-free scaling.
+  * The canvas MUST utilize CSS `image-rendering: pixelated;` (with vendor-prefixed cascades and `!important`) to maintain crisp, artifact-free nearest-neighbor scaling.
+  * **Anti-Blurring & Layout Guarantee:** The `<canvas>` element MUST avoid `rounded`, `shadow-2xl`, and `transition-all` directly on its node, as GPU compositing and border-radius clipping textures force bilinear resampling. Auto-fit scaling is achieved via `w-full h-full max-w-full max-h-full object-contain` with `aspect-ratio: 16/10`, and high-zoom inspection is supported through an `overflow-auto custom-scrollbar` viewport wrapper.
 * **NFR-03 (Modular Clean Architecture within Single-File Script Scope):**
   * Internal code organization MUST enforce strict separation of concerns into distinct logical namespaces or classes:
     * `PRNG`: Seeded Mulberry32 generator and 2D procedural value noise.
@@ -339,14 +347,18 @@ gantt
 
 ### 5.1 File & Module Organization
 
-To satisfy **NFR-01** (zero-build, single-file deployability) while adhering to **NFR-03** (modular clean architecture), the codebase uses an encapsulated, namespace-isolated structure within `index.html`.
+To satisfy **NFR-01** (zero-build, single-file deployability) while adhering to **NFR-03** (modular clean architecture), the codebase uses an encapsulated, namespace-isolated structure within `index.html` alongside a modular reference source structure in `src/`. All modular files use a universal UMD / browser-global pattern (`window.ModuleName = ModuleName; if (typeof module !== 'undefined') module.exports = { ... };`) ensuring flawless execution via `file://` with no build tools or bundlers.
 
-```
+```text
 wildfire-ca/
 │
 ├── index.html                   # Monolithic zero-dependency distribution (Production)
 │
 └── src/                         # Modular Source Architecture (Reference Architecture)
+    ├── config/                  # Centralized configuration & constants
+    │   ├── simConfig.js         # Physical constants, state enums, grid dimensions
+    │   ├── presetsConfig.js     # Curated demonstration presets & scenarios
+    │   └── renderConfig.js      # Color hex values, packed ABGR definitions
     ├── core/
     │   ├── PRNG.js              # Mulberry32 32-bit PRNG & Seed manager
     │   ├── Noise2D.js           # Multi-octave 2D procedural value noise generator
@@ -830,14 +842,14 @@ To fulfill the strict 60 FPS rendering budget (**NFR-02**) and eliminate GC paus
 
 $$i = y \cdot W + x, \quad x \in [0, W - 1], \, y \in [0, H - 1]$$
 
-```
+```text
 Row-Major Linear Offset:
 (0,0)  (1,0)  (2,0)  ... (W-1,0)
   |      |      |           |
  [0]    [1]    [2]   ...  [W-1]  -> Next row begins at index [W]
 ```
 
-```
+```text
 Pixel Buffer Bitwise Layout (32-bit Little-Endian 0xAABBGGRR):
  31             24 23             16 15              8 7               0
 +-----------------+-----------------+-----------------+-----------------+

@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Extended Drossel-Schwabl Wildfire Simulation</title>
+    <!-- CDN Dependencies: Zero Build Required, file:// portable -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <link rel="stylesheet" href="src/styles/custom.css" />
+  </head>
+  <body
+    class="bg-slate-950 text-slate-100 antialiased font-sans h-screen flex flex-col overflow-hidden"
+    x-data="wildfireApp()"
+  >
+    <!-- Top Navigation & Controls Header -->
+    <header
+      class="bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between gap-3 select-none shrink-0"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          class="w-7 h-7 rounded bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm shrink-0"
+        >
+          🔥
+        </div>
+        <div>
+          <h1
+            class="font-semibold text-sm tracking-wide text-slate-100 leading-tight"
+          >
+            Multi-Layer Wildfire Cellular Automaton
+          </h1>
+          <p class="text-[11px] text-slate-400 leading-none">
+            Extended Drossel-Schwabl Model
+          </p>
+        </div>
+      </div>
+
+      <!-- Playback Controls Bar -->
+      <div class="flex items-center gap-2">
+        <!-- Play / Pause Button -->
+        <button
+          type="button"
+          @click="togglePlay()"
+          :class="isPlaying ? 'bg-amber-500/20 text-amber-300 border-amber-500/60' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/60'"
+          class="px-2.5 py-1 text-xs font-semibold rounded border transition flex items-center gap-1.5"
+          title="Toggle Play / Pause (Space)"
+        >
+          <span x-text="isPlaying ? '⏸ Pause' : '▶ Play'"></span>
+          <kbd class="text-[10px] opacity-60 font-mono">Space</kbd>
+        </button>
+
+        <!-- Step-Tick Button -->
+        <button
+          type="button"
+          @click="stepOnce()"
+          :disabled="isPlaying"
+          :class="isPlaying ? 'opacity-40 cursor-not-allowed bg-slate-800/40 text-slate-500 border-slate-800' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'"
+          class="px-2 py-1 text-xs font-medium rounded border transition flex items-center gap-1"
+          title="Advance 1 Tick (KeyS)"
+        >
+          <span>⏭ Step</span>
+          <kbd class="text-[10px] opacity-60 font-mono">S</kbd>
+        </button>
+
+        <!-- Speed Selector -->
+        <div
+          class="flex items-center bg-slate-950/80 rounded border border-slate-800 px-1.5 py-0.5 text-xs"
+        >
+          <span class="text-[11px] text-slate-500 mr-1 font-mono">SPD:</span>
+          <select
+            x-model="playbackSpeed"
+            @change="updateSpeed(playbackSpeed)"
+            class="bg-transparent text-amber-400 font-mono text-xs focus:outline-none cursor-pointer"
+          >
+            <option value="0.25" class="bg-slate-900 text-slate-200">
+              0.25×
+            </option>
+            <option value="0.5" class="bg-slate-900 text-slate-200">
+              0.5×
+            </option>
+            <option value="1" class="bg-slate-900 text-slate-200" selected>
+              1.0×
+            </option>
+            <option value="2" class="bg-slate-900 text-slate-200">2.0×</option>
+            <option value="5" class="bg-slate-900 text-slate-200">5.0×</option>
+            <option value="max" class="bg-slate-900 text-slate-200">Max</option>
+          </select>
+        </div>
+
+        <!-- Canvas Zoom Selector -->
+        <div
+          class="flex items-center bg-slate-950/80 rounded border border-slate-800 px-1.5 py-0.5 text-xs"
+        >
+          <span class="text-[11px] text-slate-500 mr-1 font-mono">ZOOM:</span>
+          <select
+            x-model="zoomMode"
+            class="bg-transparent text-cyan-400 font-mono text-xs focus:outline-none cursor-pointer"
+            title="Canvas Display Zoom"
+          >
+            <option value="auto" class="bg-slate-900 text-slate-200">
+              Auto (Fit)
+            </option>
+            <option value="1" class="bg-slate-900 text-slate-200">1×</option>
+            <option value="2" class="bg-slate-900 text-slate-200">2×</option>
+            <option value="3" class="bg-slate-900 text-slate-200">3×</option>
+            <option value="4" class="bg-slate-900 text-slate-200">4×</option>
+          </select>
+        </div>
+
+        <!-- Resolution Toggle -->
+        <button
+          type="button"
+          @click="toggleResolution()"
+          class="px-2 py-1 text-xs font-mono-nums font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+          :title="'Switch Resolution (Current: ' + gridWidth + 'x' + gridHeight + ')'"
+          x-text="gridWidth + '×' + gridHeight"
+        ></button>
+
+        <!-- Regenerate Seed / Relief -->
+        <div
+          class="flex items-center bg-slate-950/80 rounded border border-slate-800 px-2 py-0.5"
+        >
+          <span class="text-[11px] text-slate-500 mr-1.5 font-mono">SEED:</span>
+          <input
+            type="number"
+            x-model.number="seedInput"
+            @change="changeSeed(seedInput)"
+            class="w-16 bg-transparent text-xs text-amber-400 font-mono focus:outline-none"
+          />
+          <button
+            type="button"
+            @click="randomizeSeed()"
+            title="Randomize Seed"
+            class="text-xs text-slate-400 hover:text-amber-400 px-1"
+          >
+            🎲
+          </button>
+        </div>
+
+        <!-- Benchmark (KeyT) -->
+        <button
+          type="button"
+          @click="runBenchmark()"
+          class="hidden sm:inline-flex px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700"
+          title="Run 500-tick benchmark (KeyT)"
+        >
+          ⚡ KeyT
+        </button>
+
+        <!-- Sidebar Toggle -->
+        <button
+          type="button"
+          @click="sidebarOpen = !sidebarOpen"
+          class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport & Sidebar Body -->
+    <div class="flex-1 flex overflow-hidden relative min-h-0">
+      <!-- Central Viewport Area -->
+      <main
+        class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden min-h-0 select-none"
+      >
+        <!-- Top Canvas Overlay HUD -->
+        <div
+          class="absolute top-3 left-3 z-10 flex flex-wrap gap-2 pointer-events-none"
+        >
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">FPS:</span>
+            <span class="text-emerald-400 font-semibold" x-text="fps"></span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">TICK:</span>
+            <span
+              class="text-amber-400 font-semibold"
+              x-text="tickCount"
+            ></span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">FIRES:</span>
+            <span class="text-rose-400 font-semibold">
+              <span x-text="activeFiresCount"></span>
+              <span
+                class="text-rose-400/80 text-[11px]"
+                x-text="' (' + firesPercent + '%)'"
+              ></span>
+            </span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">FOREST:</span>
+            <span class="text-emerald-300 font-semibold">
+              <span x-text="forestCount"></span>
+              <span
+                class="text-emerald-300/80 text-[11px]"
+                x-text="' (' + forestPercent + '%)'"
+              ></span>
+            </span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">GRASS:</span>
+            <span class="text-lime-400 font-semibold">
+              <span x-text="grassCount"></span>
+              <span
+                class="text-lime-400/80 text-[11px]"
+                x-text="' (' + grassPercent + '%)'"
+              ></span>
+            </span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">ASH:</span>
+            <span class="text-slate-300 font-semibold">
+              <span x-text="ashCount"></span>
+              <span
+                class="text-slate-400 text-[11px]"
+                x-text="' (' + ashPercent + '%)'"
+              ></span>
+            </span>
+          </div>
+          <div
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+          >
+            <span class="text-slate-400">MODE:</span>
+            <span
+              class="text-amber-400 uppercase font-semibold"
+              x-text="activeMode"
+            ></span>
+          </div>
+        </div>
+
+        <!-- Canvas Container with Zoom Handling -->
+        <div
+          class="flex-1 min-h-0 w-full flex items-center justify-center p-3 relative overflow-auto custom-scrollbar"
+        >
+          <canvas
+            id="viewportCanvas"
+            class="pixelated border border-slate-800 bg-black cursor-crosshair shrink-0"
+            :class="{
+              'w-full h-full max-w-full max-h-full object-contain': zoomMode === 'auto',
+              'w-[160px] h-[100px]': zoomMode === '1' && gridWidth === 160,
+              'w-[320px] h-[200px]': (zoomMode === '1' && gridWidth === 320) || (zoomMode === '2' && gridWidth === 160),
+              'w-[480px] h-[300px]': zoomMode === '3' && gridWidth === 160,
+              'w-[640px] h-[400px]': (zoomMode === '4' && gridWidth === 160) || (zoomMode === '2' && gridWidth === 320),
+              'w-[960px] h-[600px]': zoomMode === '3' && gridWidth === 320,
+              'w-[1280px] h-[800px]': zoomMode === '4' && gridWidth === 320
+            }"
+            :width="gridWidth"
+            :height="gridHeight"
+            style="aspect-ratio: 16/10"
+          >
+          </canvas>
+        </div>
+
+        <!-- Bottom Status & Telemetry Strip -->
+        <footer
+          class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-400 font-mono-nums shrink-0"
+        >
+          <div class="flex items-center gap-4">
+            <span
+              >Burned Total:
+              <strong class="text-slate-200" x-text="burnedCumulative"></strong
+            ></span>
+            <span
+              x-show="benchmarkResult"
+              class="text-amber-300 font-bold"
+              x-text="benchmarkResult"
+            ></span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span class="text-slate-500">Created by:</span>
+            <a
+              href="https://simonvoelkl.de"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-amber-400 hover:text-amber-300 font-medium hover:underline transition"
+            >
+              Simon Völkl
+            </a>
+          </div>
+        </footer>
+      </main>
+
+      <!-- Collapsible Sidebar -->
+      <aside
+        x-show="sidebarOpen"
+        class="w-80 h-full max-h-full bg-slate-900/95 border-l border-slate-800 flex flex-col p-4 gap-5 overflow-y-auto custom-scrollbar shrink-0 select-none"
+      >
+        <!-- View Modes -->
+        <div>
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+          >
+            View Layer
+          </h2>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              @click="setMode('biomass')"
+              :class="activeMode === 'biomass' ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 font-semibold' : 'bg-slate-800/80 text-slate-300 border-slate-700'"
+              class="px-2.5 py-1.5 text-xs rounded border transition-colors flex items-center justify-center gap-1.5"
+            >
+              🌲 Biomass (1)
+            </button>
+            <button
+              type="button"
+              @click="setMode('thermal')"
+              :class="activeMode === 'thermal' ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 font-semibold' : 'bg-slate-800/80 text-slate-300 border-slate-700'"
+              class="px-2.5 py-1.5 text-xs rounded border transition-colors flex items-center justify-center gap-1.5"
+            >
+              🔥 Thermal (2)
+            </button>
+            <button
+              type="button"
+              @click="setMode('moisture')"
+              :class="activeMode === 'moisture' ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 font-semibold' : 'bg-slate-800/80 text-slate-300 border-slate-700'"
+              class="px-2.5 py-1.5 text-xs rounded border transition-colors flex items-center justify-center gap-1.5"
+            >
+              💧 Moisture (3)
+            </button>
+            <button
+              type="button"
+              @click="setMode('topo')"
+              :class="activeMode === 'topo' ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 font-semibold' : 'bg-slate-800/80 text-slate-300 border-slate-700'"
+              class="px-2.5 py-1.5 text-xs rounded border transition-colors flex items-center justify-center gap-1.5"
+            >
+              ⛰️ Topography (4)
+            </button>
+          </div>
+        </div>
+
+        <!-- Presets Selector -->
+        <div>
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+          >
+            Scenarios
+          </h2>
+          <div class="flex flex-col gap-1.5">
+            <template x-for="(p, key) in presets" :key="key">
+              <button
+                type="button"
+                @click="loadPreset(key)"
+                :class="activePresetKey === key ? 'bg-slate-800 border-amber-500/70 text-slate-100' : 'bg-slate-950/50 border-slate-800 text-slate-300 hover:bg-slate-800/60'"
+                class="px-3 py-2 text-left rounded border transition flex flex-col gap-0.5"
+              >
+                <div class="flex items-center justify-between">
+                  <span
+                    class="text-xs font-medium"
+                    :class="activePresetKey === key ? 'text-amber-400' : 'text-slate-200'"
+                    x-text="p.name"
+                  ></span>
+                  <span
+                    x-show="activePresetKey === key"
+                    class="text-[10px] font-mono text-amber-400"
+                    >ACTIVE</span
+                  >
+                </div>
+                <span
+                  class="text-[11px] text-slate-400 leading-tight"
+                  x-text="p.description"
+                ></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Simulation Controls & Environmental Parameters -->
+        <div>
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+          >
+            Simulation Parameters
+          </h2>
+          <div
+            class="flex flex-col gap-2.5 bg-slate-950/60 p-3 rounded border border-slate-800 text-xs font-mono"
+          >
+            <!-- Grass Regrowth (pGrass) -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">pGrass:</span>
+                <span class="text-amber-300" x-text="pGrass.toFixed(4)"></span>
+              </div>
+              <input
+                type="range"
+                min="0.001"
+                max="0.05"
+                step="0.001"
+                x-model.number="pGrass"
+                @input="updateParams()"
+                class="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+
+            <!-- Tree Succession (pForest) -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">pForest:</span>
+                <span class="text-amber-300" x-text="pForest.toFixed(4)"></span>
+              </div>
+              <input
+                type="range"
+                min="0.0005"
+                max="0.02"
+                step="0.0005"
+                x-model.number="pForest"
+                @input="updateParams()"
+                class="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+
+            <!-- Lightning Probability -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">Lightning (f):</span>
+                <span
+                  class="text-amber-300"
+                  x-text="lightningP.toExponential(1)"
+                ></span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="0.0005"
+                step="0.00001"
+                x-model.number="lightningP"
+                @input="updateParams()"
+                class="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+
+            <!-- Baseline Moisture (Continuous Field Humidity) -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">Baseline Moisture:</span>
+                <span
+                  class="text-teal-300"
+                  x-text="baselineMoisture.toFixed(2)"
+                ></span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.80"
+                step="0.01"
+                x-model.number="baselineMoisture"
+                @input="updateParams()"
+                class="w-full accent-teal-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+
+            <!-- Interactive Polar Wind Rose Dial -->
+            <div class="pt-2 border-t border-slate-800/80">
+              <div class="flex justify-between text-[11px] mb-1.5">
+                <span class="text-slate-400">Wind Vector:</span>
+                <span class="text-cyan-300 font-mono">
+                  <span x-text="windSpeed.toFixed(1) + ' m/s'"></span>
+                  @
+                  <span x-text="windHeadingDeg + '°'"></span>
+                </span>
+              </div>
+              <div class="flex items-center justify-center py-1">
+                <svg
+                  id="windRoseSvg"
+                  class="w-28 h-28 cursor-pointer select-none bg-slate-900/90 rounded-full border border-slate-800 shadow-inner"
+                  viewBox="-60 -60 120 120"
+                  @pointerdown="handleWindDialPointer($event)"
+                  @pointermove="if ($event.buttons === 1) handleWindDialPointer($event)"
+                >
+                  <!-- Background compass rings -->
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="50"
+                    fill="none"
+                    stroke="#334155"
+                    stroke-width="1"
+                  />
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="35"
+                    fill="none"
+                    stroke="#1e293b"
+                    stroke-dasharray="2,2"
+                    stroke-width="1"
+                  />
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="20"
+                    fill="none"
+                    stroke="#1e293b"
+                    stroke-dasharray="2,2"
+                    stroke-width="1"
+                  />
+
+                  <!-- Axes (Screen Space: 0° East, 90° South, 180° West, 270° North) -->
+                  <line
+                    x1="-50"
+                    y1="0"
+                    x2="50"
+                    y2="0"
+                    stroke="#334155"
+                    stroke-width="1"
+                  />
+                  <line
+                    x1="0"
+                    y1="-50"
+                    x2="0"
+                    y2="50"
+                    stroke="#334155"
+                    stroke-width="1"
+                  />
+
+                  <!-- Compass cardinal labels -->
+                  <text
+                    x="44"
+                    y="3"
+                    font-size="10"
+                    fill="#64748b"
+                    text-anchor="middle"
+                    font-family="monospace"
+                  >
+                    E
+                  </text>
+                  <text
+                    x="0"
+                    y="48"
+                    font-size="10"
+                    fill="#64748b"
+                    text-anchor="middle"
+                    font-family="monospace"
+                  >
+                    S
+                  </text>
+                  <text
+                    x="-44"
+                    y="3"
+                    font-size="10"
+                    fill="#64748b"
+                    text-anchor="middle"
+                    font-family="monospace"
+                  >
+                    W
+                  </text>
+                  <text
+                    x="0"
+                    y="-42"
+                    font-size="10"
+                    fill="#64748b"
+                    text-anchor="middle"
+                    font-family="monospace"
+                  >
+                    N
+                  </text>
+
+                  <!-- Dynamic Wind Heading Vector (Angle in screen space radians) -->
+                  <g :transform="'rotate(' + windHeadingDeg + ')'">
+                    <!-- Vector stem scaled by wind speed (max 8.0 m/s -> 46px) -->
+                    <line
+                      x1="0"
+                      y1="0"
+                      :x2="Math.min(48, Math.max(12, (windSpeed / 8.0) * 48))"
+                      y2="0"
+                      stroke="#06b6d4"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                    />
+                    <!-- Arrowhead -->
+                    <polygon
+                      :points="Math.min(48, Math.max(12, (windSpeed / 8.0) * 48)) + ',0 ' + (Math.min(48, Math.max(12, (windSpeed / 8.0) * 48)) - 8) + ',-4 ' + (Math.min(48, Math.max(12, (windSpeed / 8.0) * 48)) - 8) + ',4'"
+                      fill="#06b6d4"
+                    />
+                  </g>
+
+                  <!-- Center pivot node -->
+                  <circle cx="0" cy="0" r="3" fill="#38bdf8" />
+                </svg>
+              </div>
+            </div>
+
+            <!-- Wind Speed -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">Wind Speed (m/s):</span>
+                <span
+                  class="text-cyan-300"
+                  x-text="windSpeed.toFixed(1)"
+                ></span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="8.0"
+                step="0.2"
+                x-model.number="windSpeed"
+                @input="updateParams()"
+                class="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+
+            <!-- Wind Direction (Degrees) -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400">Wind Heading:</span>
+                <span
+                  class="text-cyan-300"
+                  x-text="windHeadingDeg + '°'"
+                ></span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="355"
+                step="5"
+                x-model.number="windHeadingDeg"
+                @input="updateParams()"
+                class="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Ignition Actions -->
+        <div>
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+          >
+            Manual Ignition
+          </h2>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              @click="igniteCenter()"
+              class="px-2.5 py-1.5 text-xs rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 transition font-medium flex items-center justify-center gap-1"
+            >
+              🔥 Center Spark
+            </button>
+            <button
+              type="button"
+              @click="igniteRandom()"
+              class="px-2.5 py-1.5 text-xs rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 transition font-medium flex items-center justify-center gap-1"
+            >
+              ⚡ Random Strike
+            </button>
+          </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Reference -->
+        <div
+          class="mt-auto pt-4 border-t border-slate-800 text-[11px] text-slate-400"
+        >
+          <h3
+            class="text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2"
+          >
+            Hotkeys
+          </h3>
+          <div class="grid grid-cols-2 gap-y-1 font-mono-nums">
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >Space</kbd
+              >
+              Play / Pause
+            </div>
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >KeyS</kbd
+              >
+              Step 1 Tick
+            </div>
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >KeyR</kbd
+              >
+              Reset Sim
+            </div>
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >KeyT</kbd
+              >
+              Benchmark
+            </div>
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >1 - 4</kbd
+              >
+              View Modes
+            </div>
+            <div>
+              <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200"
+                >KeyB</kbd
+              >
+              Cycle Brush
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Modular Simulation Architecture Scripts (Universal / Hybrid Pattern) -->
+    <!-- 1. Configurations -->
+    <script src="src/config/simConfig.js"></script>
+    <script src="src/config/presetsConfig.js"></script>
+    <script src="src/config/renderConfig.js"></script>
+
+    <!-- 2. Core Simulation Subsystems -->
+    <script src="src/core/PRNG.js"></script>
+    <script src="src/core/Noise2D.js"></script>
+    <script src="src/core/Environment.js"></script>
+    <script src="src/core/AutomatonEngine.js"></script>
+
+    <!-- 3. Direct 32-bit Render Pipeline -->
+    <script src="src/render/ColorPalettes.js"></script>
+    <script src="src/render/ViewportRenderer.js"></script>
+
+    <!-- 4. UI Presentation & Dashboard Bridge -->
+    <script src="src/ui/DashboardBridge.js"></script>
+  </body>
+</html>

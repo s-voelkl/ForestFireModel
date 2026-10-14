@@ -1,2 +1,181 @@
-# ForestFireModel
-Extension of the Drossel and Schwabl Forest-Fire Model.
+# Multi-Layer Wildfire Cellular Automaton
+
+Extension and high-performance simulation of the **Drossel and Schwabl Forest-Fire Model**, featuring multi-layer environmental physics: discrete vegetative succession, fuel depletion, continuous moisture fields, procedural topography heightfields, anisotropic screen-space wind vectors, and downwind ember spotting.
+
+---
+
+## 1. System Overview
+
+The application is an interactive, zero-dependency browser simulation designed for demonstration and data science analysis. It combines a direct 32-bit pixel-blitting HTML5 Canvas render pipeline with a reactive control dashboard (Alpine.js + Tailwind CSS) running completely client-side.
+
+### Key Highlights
+
+- **Zero-Build Architecture:** Runs directly via `file://` protocol or any static HTTP server with no compilation, bundlers, or NPM dependencies.
+- **Direct 32-Bit Memory Blit:** Writes directly to `ImageData` via a precomputed `Uint32Array` Look-Up Table (LUT) in little-endian `0xAABBGGRR` byte order.
+- **Unproxied Engine State:** Physics and TypedArrays reside outside Alpine.js reactive proxies to ensure 60+ FPS and 300+ TPS headless benchmarks.
+- **Multi-Layer Physics:**
+  - Dynamic moisture evaporation around fire fronts ($\delta_{\text{evap}} = 0.05$) and ambient recovery ($\delta_{\text{regen}} = 0.01$).
+  - Slope-assisted fire propagation ($M_{\text{slope}} = \operatorname{clamp}(\exp(2.5 \cdot \nabla E), 0.1, 3.5)$).
+  - Screen-space wind vectors ($M_{\text{wind}}$) and long-range ember spotting ($v \ge 2.5$).
+  - 4-tier incandescent flame temperature ramp (Smoldering Crimson $\to$ Bright Red $\to$ Orange $\to$ White-Hot).
+
+---
+
+## 2. Architecture & Data Flow
+
+```mermaid
+graph TD
+    subgraph UI_Presentation [Presentation Layer - Alpine.js + Tailwind CSS]
+        Controls[Playback: Play / Pause / Step / Speed]
+        Presets[Scenario Presets Matrix]
+        WindDial[Interactive Polar Wind Rose Dial]
+        LayerSelector[View Mode Selector: Biomass / Thermal / Moisture / Topo]
+        HUD[Live Dual-Density HUD: Count & Percentage]
+    end
+
+    subgraph Core_Physics [Core Simulation Engine - Pure ES6]
+        PRNG[Mulberry32 PRNG]
+        Noise[2D Value Noise & FBM Elevation]
+        Engine[AutomatonEngine: Dual-Buffer Uint8Array]
+        Env[Environment: Moisture & Wind Vector]
+    end
+
+    subgraph Render_Pipeline [Hardware Blit Pipeline]
+        LUT[Precomputed 32-bit ABGR LUTs]
+        PixelBuffer[Uint32Array ImageData Buffer]
+        Canvas[HTML5 Canvas: Pixelated Nearest-Neighbor]
+    end
+
+    Controls -->|Advances Ticks| Engine
+    Presets -->|Configures Parameters| Env
+    WindDial -->|Sets Velocity & Angle| Env
+    PRNG -->|Seeds Noise & Lightning| Engine
+    Noise -->|Generates Heightfield| Env
+    Env -->|Slope & Wind Influence| Engine
+    Engine -->|State & Fuel Matrices| LUT
+    Env -->|Elevation & Moisture Grids| LUT
+    LUT -->|Direct 32-bit Memory Write| PixelBuffer
+    PixelBuffer -->|ctx.putImageData| Canvas
+    Engine -->|Counts & Metrics| HUD
+```
+
+---
+
+## 3. Current Implementation Status
+
+Implementation progress mapped against the Software Requirements Specification in [notes/plan.md](notes/plan.md):
+
+### Phase 1: Scaffold, Seeded Noise & 32-Bit LUT Canvas Pipeline — ✅ Complete
+
+- Mulberry32 PRNG and 2D FBM procedural value noise generator.
+- Direct `ctx.putImageData` blitting via precomputed 32-bit ABGR Look-Up Tables.
+- Sustains steady 60 FPS with zero memory allocation in render loops.
+
+### Phase 2: Multi-State Dual-Buffer CA & Decoupled Playback Loop — ✅ Complete
+
+- Double-buffered `currentGrid` & `nextGrid` (`Uint8Array`) with non-combustible absorbing boundaries.
+- Dual-phase `fuelGrid` tracking active combustion countdown (1..4) and ash cooldown (1..8).
+- Decoupled playback loop ($0.25\times, 0.5\times, 1.0\times, 2.0\times, 5.0\times, \text{Max}$) with `Space` and `KeyS` stepping.
+
+### Phase 3: Physics Layers (Slope, Screen-Space Wind & Moisture) — ✅ Complete
+
+- Continuous dynamic moisture field ($\mu \in [0.0, 1.0]$) with neighbor-density evaporative decay and ambient recovery.
+- Normalized slope exponential multiplier ($k_s = 2.5$) accelerating uphill spread.
+- Screen-space anisotropic wind vector model with directional dot-product influence and long-range ember spotting ($v \ge 2.5$).
+
+### Phase 4: Presets Matrix, View Modes, HUD Overlays & Hotkeys — ✅ Complete
+
+- 4 calibrated demonstration scenarios (`SOC`, `GALE_FORCE_CANYON`, `CATASTROPHIC_DROUGHT`, `TACTICAL_DEFENSE`).
+- 4 switchable layer modes (`Biomass`, `Thermal`, `Moisture`, `Topography`).
+- Dual-density HUD formatting `[Count (Percentage%)]` for Active Fires, Forest, Grass, and Ash.
+- Interactive polar SVG Wind Rose dial controller with direct pointer manipulation.
+- Responsive auto-zoom fit (`object-contain`) and blur-free nearest-neighbor pixelated canvas scaling.
+- Vertically scrollable parameters sidebar (`h-screen overflow-hidden` parent layout containment).
+
+### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter — 🟡 In Progress
+
+- Headless 500-tick performance benchmark (`KeyT`) sustaining **300+ TPS** (✅ Complete).
+- Zero-allocation circular metric ring buffer (Pending).
+- Rolling sparkline trend mini-canvas (Pending).
+- RFC 4180 CSV serializer & browser Blob downloader (Pending).
+
+---
+
+## 4. Quick Start & Execution
+
+### Option A: Direct Browser Launch (Recommended)
+
+Simply open `index.html` directly in any modern browser (Chrome, Edge, Firefox, Safari):
+
+```bash
+# Windows
+start index.html
+
+# macOS
+open index.html
+
+# Linux
+xdg-open index.html
+```
+
+### Option B: Local Static Preview Server
+
+Run a lightweight HTTP preview server:
+
+```bash
+python -m http.server 8000
+# Navigate to http://localhost:8000
+```
+
+---
+
+## 5. Controls & Hotkeys
+
+| Action | Shortcut / Input | Description |
+| :--- | :---: | :--- |
+| **Play / Pause** | `Space` | Toggle automatic simulation tick advancement |
+| **Step Tick** | `KeyS` | Step forward exactly 1 tick while paused |
+| **Reset Simulation** | `KeyR` | Re-seed and re-generate world using active preset |
+| **Benchmark** | `KeyT` | Run 500 headless steps and display TPS performance |
+| **View Modes** | `1` - `4` | `1`: Biomass, `2`: Thermal, `3`: Moisture, `4`: Topography |
+| **Resolution Toggle** | Button | Switch between Standard ($160 \times 100$) and High-Res ($320 \times 200$) |
+| **Wind Dial** | Click & Drag | Interactive polar dial to adjust wind heading and speed |
+| **Manual Ignition** | Buttons | Spark fire at grid center or trigger a random lightning strike |
+
+---
+
+## 6. Directory Structure
+
+```text
+ForestFireModel/
+├── index.html                   # Zero-build distribution with hybrid UMD module loading
+├── AGENTS.md                    # AI agent operating guidelines, constraints & code standards
+├── README.md                    # Project documentation & status report
+├── notes/
+│   ├── plan.md                  # Comprehensive Software Requirements Specification (SRS)
+│   └── abstract-plan-GER.md     # Original conceptual notes (German)
+└── src/                         # Modular reference source architecture
+    ├── config/
+    │   ├── simConfig.js         # Physical constants, timers, grid dimensions
+    │   ├── presetsConfig.js     # Curated scenario definitions
+    │   └── renderConfig.js      # Color hexes, packed 32-bit ABGR, view modes
+    ├── core/
+    │   ├── PRNG.js              # Deterministic Mulberry32 PRNG
+    │   ├── Noise2D.js           # 2D value noise & Fractal Brownian Motion (FBM)
+    │   ├── Environment.js       # Topography heightfield, continuous moisture & wind
+    │   └── AutomatonEngine.js   # Dual-buffer TypedArray engine & fire spread physics
+    ├── render/
+    │   ├── ColorPalettes.js     # Precomputed 32-bit ABGR LUTs & flame temperature ramps
+    │   └── ViewportRenderer.js  # Direct Uint32Array ImageData blitter
+    ├── ui/
+    │   └── DashboardBridge.js   # Alpine.js reactive root store & detached engine handles
+    └── styles/
+        └── custom.css           # Nearest-neighbor pixelated rules & custom dark scrollbar
+```
+
+---
+
+## 7. License & Credits
+
+- **Author:** Simon Völkl ([simonvoelkl.de](https://simonvoelkl.de))
+- **License:** MIT License — see [LICENSE](LICENSE) for details.

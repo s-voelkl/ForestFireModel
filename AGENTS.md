@@ -33,6 +33,14 @@
   2. `[Step/Refactor]` → verify: `[Specific check/benchmark]`
 - Loop independently against clear success criteria until all constraints pass.
 
+### 1.5 Task Delegation
+
+A strong frontier AI model plans and delegates tasks to smaller specialized sub-agents that handle specific aspects of the overall problem.
+
+### 1.6 Documentation Updates
+
+Update the AGENTS.md, notes/plan.md and README.md to reflect any changes in agent responsibilities, task delegation strategies, or overall architecture. Use professional english language and useful mermaid diagrams.
+
 ---
 
 ## 2. Project Overview
@@ -68,7 +76,7 @@ The runtime is architected for zero-friction portability: it runs out of a singl
 
 ## 4. Architecture Overview
 
-```
+```text
 
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Presentation & Control Layer (Alpine.js + Tailwind CSS via CDN)       │
@@ -109,7 +117,7 @@ To sustain 60–120+ simulation steps per second, the `AutomatonEngine` instance
 
 ## 5. Project Structure
 
-```
+```text
 
 wildfire-ca/
 ├── index.html                   # Zero-build monolithic distribution (all modules & configs self-contained)
@@ -142,7 +150,14 @@ wildfire-ca/
 
 ```
 
-> **Single-File Execution Note:** When modifying or maintaining `index.html`, ensure the inlined script sections mirror the organization above. The top of the script tag MUST contain the frozen `CONFIG` blocks matching `src/config/`.
+> **Single-File & Zero-Build Execution Note:** To guarantee flawless operation under the `file://` protocol without any local server, bundler, or module loader, all files under `src/` use the universal UMD / browser-global pattern:
+>
+> ```javascript
+> if (typeof window !== "undefined") { window.ModuleName = ModuleName; }
+> if (typeof module !== "undefined" && module.exports) { module.exports = { ModuleName }; }
+> ```
+>
+> In `index.html`, scripts are imported via standard `<script src="...">` tags in strict topological dependency order.
 
 ---
 
@@ -156,7 +171,7 @@ All physical coefficients, transition rates, timers, dimensional defaults, and c
    - **Cell States:**
 
      ```javascript
-     export const CELL_STATE = Object.freeze({
+     const CELL_STATE = Object.freeze({
        EMPTY: 0,
        GRASS: 1,
        FOREST: 2,
@@ -258,7 +273,10 @@ All physical coefficients, transition rates, timers, dimensional defaults, and c
 ## 9. UI & Design System
 
 - **Dashboard Visual Theme:** Technical control-room dark theme optimized for live projector contrast. Base background: `bg-slate-950`; card surfaces: `bg-slate-900/90`; borders: `border-slate-800`; primary text: `text-slate-100`; muted text: `text-slate-400`.
-- **Canvas Viewport Styling:** The canvas element MUST have CSS `image-rendering: pixelated; image-rendering: crisp-edges;` to preserve razor-sharp pixel fidelity during responsive scaling.
+- **Canvas Viewport Styling:** The canvas element MUST have CSS `image-rendering: pixelated; image-rendering: crisp-edges;` (with `-webkit-optimize-contrast`, `-moz-crisp-edges`, and `!important`) to preserve razor-sharp pixel fidelity during responsive scaling.
+- **Anti-Blurring Constraints:** The `<canvas>` element itself MUST NOT be styled with `rounded`, `shadow-2xl`, or `transition-all`. In modern browser compositors (Chromium/WebKit), applying border radius or box shadows directly to a canvas creates an antialiased clipping mask / backing texture that triggers bilinear interpolation, destroying pixel sharpness.
+- **Viewport Layout & Auto-Fit:** The parent flex containers MUST enforce `min-h-0` and `overflow-hidden` so that `<aside>` vertical scrolling activates correctly. Auto-zoom scaling uses `w-full h-full max-w-full max-h-full object-contain` with `aspect-ratio: 16/10`. Fixed zoom levels are wrapped in an `overflow-auto custom-scrollbar` container allowing pan/scroll inspection.
+- **HUD Metric Formatting:** On-canvas overlays display dual-density indicators in the format `[Total Count (Percentage%)]` (e.g., `FIRES: 450 (18.2%)`, `FOREST: 1240 (52%)`).
 - **Typography:**
   - Standard sans-serif (`Inter`, `system-ui`) for controls, modal dialogs, and navigation labels.
   - Strict monospaced font (`ui-monospace`, `monospace`) for telemetry indicators, grid coordinates, sparkline readouts, and inspection tooltips.
