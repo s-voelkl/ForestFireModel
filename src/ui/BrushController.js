@@ -4,7 +4,7 @@
  */
 
 class BrushController {
-  static TOOLS = Object.freeze(["ignite", "firebreak", "waterDrop", "reforest"]);
+  static TOOLS = Object.freeze(["ignite", "firebreak", "waterDrop", "reforest", "addLake", "drainLake"]);
 
   static TOOL_INFO = Object.freeze({
     ignite: Object.freeze({
@@ -31,6 +31,18 @@ class BrushController {
       color: "emerald",
       desc: "Restores mature FOREST with baseline moisture",
     }),
+    addLake: Object.freeze({
+      name: "Add Lake Reservoir",
+      label: "🌊 Add Lake",
+      color: "blue",
+      desc: "Carves permanent water reservoir with 100% moisture barrier",
+    }),
+    drainLake: Object.freeze({
+      name: "Drain Lake Reservoir",
+      label: "🏜️ Drain Lake",
+      color: "orange",
+      desc: "Drains water cells back to empty ground and restores land elevation",
+    }),
   });
 
   constructor(activeTool = "ignite", radius = 2) {
@@ -46,7 +58,9 @@ class BrushController {
   }
 
   setRadius(r) {
-    this.radius = Math.max(1, Math.min(5, Math.round(r)));
+    const minR = typeof SIM_CONFIG !== "undefined" && SIM_CONFIG.UI ? SIM_CONFIG.UI.BRUSH_RADIUS_MIN : 1;
+    const maxR = typeof SIM_CONFIG !== "undefined" && SIM_CONFIG.UI ? SIM_CONFIG.UI.BRUSH_RADIUS_MAX : 10;
+    this.radius = Math.max(minR, Math.min(maxR, Math.round(r)));
   }
 
   cycleTool() {

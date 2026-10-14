@@ -22,7 +22,7 @@ class SparklineRenderer {
   }
 
   /**
-   * Draw rolling trend of Active Fires and Forest Canopy.
+   * Draw rolling multi-curve trend of Canopy, Fires, Grass, and Ash.
    * @param {Array<Object>} records - Chronological array of MetricRecords (trailing ~150).
    * @param {number} totalCells - Grid total cells for scaling normalization.
    */
@@ -36,14 +36,16 @@ class SparklineRenderer {
     // Clear background
     ctx.clearRect(0, 0, w, h);
 
-    // Find dynamic maximum for auto-scaling
+    // Find dynamic maximum across all tracked series for auto-scaling
     let maxVal = 1;
     for (let i = 0; i < n; i++) {
       const r = records[i];
       if (r.count_forest > maxVal) maxVal = r.count_forest;
       if (r.count_burning > maxVal) maxVal = r.count_burning;
+      if (r.count_grass > maxVal) maxVal = r.count_grass;
+      if (r.count_ash > maxVal) maxVal = r.count_ash;
     }
-    // Prevent division by zero and provide headroom
+    // Prevent division by zero and provide vertical headroom
     const scaleY = (h - 6) / maxVal;
     const stepX = n > 1 ? (w - 4) / (n - 1) : 0;
 
@@ -57,9 +59,33 @@ class SparklineRenderer {
     ctx.lineTo(w, Math.floor(h / 2));
     ctx.stroke();
 
-    // 1. Draw Forest Biomass Curve (Emerald #34d399)
+    // 1. Grass Pioneer Curve (Lime #a3e635)
+    ctx.strokeStyle = "#a3e635";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = 2 + i * stepX;
+      const y = h - 3 - records[i].count_grass * scaleY;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 2. Ash Cooldown Curve (Slate #94a3b8)
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = 2 + i * stepX;
+      const y = h - 3 - records[i].count_ash * scaleY;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // 3. Forest Canopy Biomass Curve (Emerald #34d399)
     ctx.strokeStyle = "#34d399";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const x = 2 + i * stepX;
@@ -69,9 +95,9 @@ class SparklineRenderer {
     }
     ctx.stroke();
 
-    // 2. Draw Active Fires Curve (Rose #f43f5e)
+    // 4. Active Fires Curve (Rose #f43f5e)
     ctx.strokeStyle = "#f43f5e";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const x = 2 + i * stepX;

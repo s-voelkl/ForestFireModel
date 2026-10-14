@@ -197,7 +197,9 @@ All physical coefficients, transition rates, timers, dimensional defaults, and c
      - `EMBER_MIN_DISTANCE: 2`
      - `EMBER_MAX_DISTANCE: 7`
      - `EMBER_MAX_MOISTURE: 0.65`
-     - `METRIC_BUFFER_CAPACITY: 5000`
+     - `METRIC_BUFFER_CAPACITY: 50000`
+     - `BENCHMARK_ITERATIONS: 1000`
+     - `BRUSH_RADIUS_MIN: 1, BRUSH_RADIUS_MAX: 10`
 
 2. **`PRESETS_CONFIG` (`src/config/presetsConfig.js`):**
    - Calibrated scenario definitions (`seed`, `windSpeed`, `windHeadingDeg`, `pGrass`, `pForest`, `lightningP`, `baselineMoisture`, `description`) for:
@@ -233,8 +235,8 @@ All physical coefficients, transition rates, timers, dimensional defaults, and c
 | **Thermal View Mode** | `Digit2` | Switches viewport to high-contrast blackbody radiation palette |
 | **Moisture View Mode** | `Digit3` | Switches viewport to desert sand $\to$ deep aqua moisture heatmap |
 | **Topo View Mode** | `Digit4` | Switches viewport to analytical shaded-relief elevation contours |
-| **Cycle Brush** | `KeyB` | Cycles active god-mode tool (Ignite $\to$ Firebreak $\to$ Water Drop $\to$ Reforest) |
-| **TPS Benchmark** | `KeyT` | Runs 500 headless steps immediately; displays engine TPS in console/HUD |
+| **Cycle Brush** | `KeyB` | Cycles active god-mode tool (Ignite $\to$ Firebreak $\to$ Water Drop $\to$ Reforest $\to$ Add Lake $\to$ Drain Lake) |
+| **TPS Benchmark** | `KeyT` | Runs 1000 headless steps immediately; displays engine TPS in console/HUD |
 | **CSV Telemetry Export** | Click **"Export Telemetry"** button | Triggers instant browser download of RFC 4180-compliant `.csv` log |
 
 ---

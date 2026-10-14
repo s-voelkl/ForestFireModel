@@ -145,7 +145,7 @@
           type="button"
           @click="runBenchmark()"
           class="hidden sm:inline-flex px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700"
-          title="Run 500-tick benchmark (KeyT)"
+          title="Run 1000-tick benchmark (KeyT)"
         >
           ⚡ KeyT
         </button>
@@ -184,25 +184,28 @@
           class="absolute top-3 left-3 z-10 flex flex-wrap gap-2 pointer-events-none"
         >
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[85px] shrink-0"
           >
             <span class="text-slate-400">FPS:</span>
-            <span class="text-emerald-400 font-semibold" x-text="fps"></span>
+            <span
+              class="text-emerald-400 font-semibold text-right"
+              x-text="fps"
+            ></span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[115px] shrink-0"
           >
             <span class="text-slate-400">TICK:</span>
             <span
-              class="text-amber-400 font-semibold"
+              class="text-amber-400 font-semibold text-right"
               x-text="tickCount"
             ></span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[155px] shrink-0"
           >
             <span class="text-slate-400">FIRES:</span>
-            <span class="text-rose-400 font-semibold">
+            <span class="text-rose-400 font-semibold text-right">
               <span x-text="activeFiresCount"></span>
               <span
                 class="text-rose-400/80 text-[11px]"
@@ -211,10 +214,10 @@
             </span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[155px] shrink-0"
           >
             <span class="text-slate-400">FOREST:</span>
-            <span class="text-emerald-300 font-semibold">
+            <span class="text-emerald-300 font-semibold text-right">
               <span x-text="forestCount"></span>
               <span
                 class="text-emerald-300/80 text-[11px]"
@@ -223,10 +226,10 @@
             </span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[155px] shrink-0"
           >
             <span class="text-slate-400">GRASS:</span>
-            <span class="text-lime-400 font-semibold">
+            <span class="text-lime-400 font-semibold text-right">
               <span x-text="grassCount"></span>
               <span
                 class="text-lime-400/80 text-[11px]"
@@ -235,10 +238,10 @@
             </span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[145px] shrink-0"
           >
             <span class="text-slate-400">ASH:</span>
-            <span class="text-slate-300 font-semibold">
+            <span class="text-slate-300 font-semibold text-right">
               <span x-text="ashCount"></span>
               <span
                 class="text-slate-400 text-[11px]"
@@ -247,11 +250,11 @@
             </span>
           </div>
           <div
-            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center gap-2 text-xs font-mono-nums shadow-lg"
+            class="bg-slate-900/85 backdrop-blur-sm border border-slate-800/90 rounded px-2.5 py-1 flex items-center justify-between text-xs font-mono-nums shadow-lg w-[130px] shrink-0"
           >
             <span class="text-slate-400">MODE:</span>
             <span
-              class="text-amber-400 uppercase font-semibold"
+              class="text-amber-400 uppercase font-semibold text-right"
               x-text="activeMode"
             ></span>
           </div>
@@ -354,19 +357,21 @@
 
           <!-- Real-time Sparkline HUD Mini-Canvas -->
           <div
-            class="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1 rounded border border-slate-800"
+            class="flex items-center gap-2.5 bg-slate-950/80 px-3 py-1 rounded border border-slate-800"
           >
             <div
-              class="flex flex-col text-[10px] leading-tight text-right select-none font-sans"
+              class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] leading-tight text-right select-none font-sans"
             >
-              <span class="text-emerald-400">Canopy</span>
-              <span class="text-rose-400">Fires</span>
+              <span class="text-emerald-400 font-medium">● Canopy</span>
+              <span class="text-rose-400 font-medium">● Fires</span>
+              <span class="text-lime-400 font-medium">● Grass</span>
+              <span class="text-slate-400 font-medium">● Ash</span>
             </div>
             <canvas
               id="sparklineCanvas"
-              width="150"
-              height="28"
-              class="w-[150px] h-[28px] bg-slate-900 rounded"
+              width="280"
+              height="30"
+              class="w-[280px] h-[30px] bg-slate-900 rounded"
             ></canvas>
           </div>
 
@@ -780,6 +785,22 @@
             >
               🌲 Reforest
             </button>
+            <button
+              type="button"
+              @click="setBrushTool('addLake')"
+              :class="activeBrushTool === 'addLake' || activeBrushTool === 'lake' ? 'bg-blue-500/25 text-blue-300 border-blue-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              🌊 Add Lake
+            </button>
+            <button
+              type="button"
+              @click="setBrushTool('drainLake')"
+              :class="activeBrushTool === 'drainLake' ? 'bg-amber-500/25 text-amber-300 border-amber-500/70 font-semibold' : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800'"
+              class="px-2 py-1.5 text-xs rounded border transition flex items-center justify-center gap-1"
+            >
+              🏜️ Drain Lake
+            </button>
           </div>
 
           <!-- Brush Radius Slider -->
@@ -793,7 +814,7 @@
             <input
               type="range"
               min="1"
-              max="5"
+              max="10"
               step="1"
               x-model.number="brushRadius"
               @input="setBrushRadius(brushRadius)"

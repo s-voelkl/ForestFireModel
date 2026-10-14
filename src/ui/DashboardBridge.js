@@ -200,19 +200,36 @@ function wildfireApp() {
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return null;
 
+      // Extract border offsets (clientLeft / clientTop) to get exact internal canvas content area
+      const borderLeft = canvas.clientLeft || 0;
+      const borderTop = canvas.clientTop || 0;
+      const contentWidth = canvas.clientWidth || (rect.width - borderLeft * 2);
+      const contentHeight = canvas.clientHeight || (rect.height - borderTop * 2);
+
+      if (contentWidth <= 0 || contentHeight <= 0) return null;
+
+      const innerLeft = rect.left + borderLeft;
+      const innerTop = rect.top + borderTop;
+      const innerRight = innerLeft + contentWidth;
+      const innerBottom = innerTop + contentHeight;
+
       const clientX = e.clientX;
       const clientY = e.clientY;
       if (
-        clientX < rect.left ||
-        clientX > rect.right ||
-        clientY < rect.top ||
-        clientY > rect.bottom
+        clientX < innerLeft ||
+        clientX > innerRight ||
+        clientY < innerTop ||
+        clientY > innerBottom
       ) {
         return null;
       }
 
-      const gx = Math.floor(((clientX - rect.left) * this.gridWidth) / rect.width);
-      const gy = Math.floor(((clientY - rect.top) * this.gridHeight) / rect.height);
+      // Exact normalized ratio across the active canvas pixel buffer
+      const normalizedX = (clientX - innerLeft) / contentWidth;
+      const normalizedY = (clientY - innerTop) / contentHeight;
+
+      const gx = Math.floor(normalizedX * this.gridWidth);
+      const gy = Math.floor(normalizedY * this.gridHeight);
       const clampedX = Math.max(0, Math.min(this.gridWidth - 1, gx));
       const clampedY = Math.max(0, Math.min(this.gridHeight - 1, gy));
 
@@ -401,9 +418,11 @@ function wildfireApp() {
                   gEngine.currentGrid,
                   gEngine.neighborOffsets,
                 );
+              this.logTelemetryRecord();
             }
             this.updateTelemetryHUD();
             this.renderActiveLayer();
+            this.renderSparkline();
           } else {
             const speedMult = parseFloat(this.playbackSpeed) || 1.0;
             // Target: baseline TPS * speedMultiplier
@@ -419,6 +438,7 @@ function wildfireApp() {
                   gEngine.currentGrid,
                   gEngine.neighborOffsets,
                 );
+              this.logTelemetryRecord();
               this.accumulatedTime -= targetTickMs;
               stepped = true;
             }
@@ -426,7 +446,6 @@ function wildfireApp() {
             if (stepped) {
               this.updateTelemetryHUD();
               this.renderActiveLayer();
-              this.logTelemetryRecord();
               this.renderSparkline();
             }
           }
@@ -563,7 +582,10 @@ function wildfireApp() {
 
     runBenchmark() {
       if (!gEngine) return;
-      const iterations = 500;
+      const iterations =
+        typeof SIM_CONFIG !== "undefined" && SIM_CONFIG.UI && SIM_CONFIG.UI.BENCHMARK_ITERATIONS
+          ? SIM_CONFIG.UI.BENCHMARK_ITERATIONS
+          : 1000;
       const wasPlaying = this.isPlaying;
       this.isPlaying = false;
 
@@ -578,7 +600,7 @@ function wildfireApp() {
       }
       const elapsed = performance.now() - start;
       const tps = Math.round(iterations / (elapsed / 1000));
-      this.benchmarkResult = `Benchmark: 500 steps in ${Math.round(elapsed)}ms (${tps} TPS)`;
+      this.benchmarkResult = `Benchmark: ${iterations} steps in ${Math.round(elapsed)}ms (${tps} TPS)`;
 
       this.updateTelemetryHUD();
       this.renderActiveLayer();

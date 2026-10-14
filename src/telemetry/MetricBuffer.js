@@ -5,7 +5,7 @@
  */
 
 class MetricBuffer {
-  constructor(capacity = 5000) {
+  constructor(capacity = 50000) {
     this.capacity = capacity;
     this.head = 0; // points to next write slot
     this.count = 0; // number of valid records stored <= capacity
@@ -13,28 +13,55 @@ class MetricBuffer {
     // Pre-allocated object pool to prevent dynamic GC allocations
     this.pool = new Array(capacity);
     for (let i = 0; i < capacity; i++) {
-      this.pool[i] = {
-        tick: 0,
-        timestamp_ms: 0,
-        seed: 0,
-        count_empty: 0,
-        count_grass: 0,
-        count_forest: 0,
-        count_burning: 0,
-        count_ash: 0,
-        count_water: 0,
-        mean_moisture: 0.0,
-        wind_speed: 0.0,
-        wind_heading: 0,
-        burned_cumulative: 0,
-      };
+      this.pool[i] = this._createRecord();
     }
 
     // Pre-allocated array for rolling trend inspection
     this.recentBuffer = [];
   }
 
-  // Push metric snapshot by mutating pre-allocated object in-place (Zero Allocation)
+  _createRecord() {
+    return {
+      tick: 0,
+      timestamp_ms: 0,
+      seed: 0,
+      count_empty: 0,
+      count_grass: 0,
+      count_forest: 0,
+      count_burning: 0,
+      count_ash: 0,
+      count_water: 0,
+      mean_moisture: 0.0,
+      wind_speed: 0.0,
+      wind_heading: 0,
+      burned_cumulative: 0,
+    };
+  }
+
+  // Ensure capacity dynamically if buffer fills beyond initial pre-allocated limit
+  _expand(newCapacity) {
+    const oldPool = this.pool;
+    const oldCap = this.capacity;
+    const oldHead = this.head;
+    const count = this.count;
+
+    const newPool = new Array(newCapacity);
+    // Copy existing records in chronological order
+    const startIdx = (oldHead - count + oldCap) % oldCap;
+    for (let i = 0; i < count; i++) {
+      newPool[i] = oldPool[(startIdx + i) % oldCap];
+    }
+    // Allocate remaining empty slots
+    for (let i = count; i < newCapacity; i++) {
+      newPool[i] = this._createRecord();
+    }
+
+    this.pool = newPool;
+    this.capacity = newCapacity;
+    this.head = count % newCapacity;
+  }
+
+  // Push metric snapshot by mutating pre-allocated object in-place (Zero Allocation in normal range)
   pushRecord(
     tick,
     timestamp_ms,
@@ -50,6 +77,11 @@ class MetricBuffer {
     wind_heading,
     burned_cumulative,
   ) {
+    if (this.count >= this.capacity) {
+      // Dynamically expand capacity by doubling to retain complete continuous simulation history
+      this._expand(this.capacity * 2);
+    }
+
     const rec = this.pool[this.head];
     rec.tick = tick;
     rec.timestamp_ms = timestamp_ms;

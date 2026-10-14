@@ -193,16 +193,18 @@ stateDiagram-v2
     * `Moisture Heatmap`: Visualizes arid evaporation scars ($\text{sand orange} \to \text{teal} \to \text{saturated deep blue}$).
     * `Topography Shading`: Analytical shaded-relief elevation map highlighting ridges, peaks, and drainage valleys.
 * **REQ-UI-04 (Interactive God-Mode Brushes & Accurate Pointer Projection):**
-  * Pointer drag interactions (`pointerdown`, `pointermove`, `pointerup`) with configurable radius ($r \in [1, 5]$):
+  * Pointer drag interactions (`pointerdown`, `pointermove`, `pointerup`) with configurable radius ($r \in [1, 10]$):
     * `Ignite`: Forces combustible cells into `BURNING`.
     * `Firebreak Bulldozer`: Instantly clears cells to `EMPTY` and zeros fuel.
     * `Aerial Water Drop`: Saturates moisture ($\mu \leftarrow 1.0$) and extinguishes burning cells.
     * `Reforest`: Restores mature `FOREST` with baseline moisture.
+    * `Add Lake`: Carves permanent natural water reservoir (`WATER`), setting moisture to $1.0$ and depressing local elevation.
+    * `Drain Lake`: Drains existing water reservoir cells (`WATER`) back to dry `EMPTY` ground, restoring baseline moisture and solid land elevation.
   * Canvas coordinates MUST be accurately re-projected from CSS client space to discrete grid coordinates regardless of window resizing or display DPI:
-    $$x_{\text{grid}} = \left\lfloor (e.\text{clientX} - \text{rect}.\text{left}) \cdot \frac{W_{\text{grid}}}{\text{rect}.\text{width}} \right\rfloor, \quad y_{\text{grid}} = \left\lfloor (e.\text{clientY} - \text{rect}.\text{top}) \cdot \frac{H_{\text{grid}}}{\text{rect}.\text{height}} \right\rfloor$$
+    $$x_{\text{grid}} = \left\lfloor (e.\text{clientX} - \text{rect}.\text{left} - \text{borderLeft}) \cdot \frac{W_{\text{grid}}}{\text{clientWidth}} \right\rfloor, \quad y_{\text{grid}} = \left\lfloor (e.\text{clientY} - \text{rect}.\text{top} - \text{borderTop}) \cdot \frac{H_{\text{grid}}}{\text{clientHeight}} \right\rfloor$$
 * **REQ-UI-05 (Live Cell-Inspector HUD, On-Canvas Overlay & Realtime Sparklines):**
   * Hovering the cursor over the canvas displays a localized inspector tooltip detailing: $(x, y)$, State, Elevation ($E$), Moisture ($\mu$), and Fuel Countdown.
-  * A top-left canvas translucent HUD overlay renders key indicators formatted as `[Total number (Percentage%)]` for high information density:
+  * A top-left canvas translucent HUD overlay renders key indicators formatted as `[Total number (Percentage%)]` inside fixed-width stationary cards:
     * `FPS`: Real-time animation frame rate.
     * `TICK`: Monotonic iteration counter.
     * `FIRES`: Active burning cells and current grid percentage: `activeFiresCount (firesPercent%)`.
@@ -210,7 +212,7 @@ stateDiagram-v2
     * `GRASS`: Grass pioneer vegetation cell count and combustible percentage: `grassCount (grassPercent%)`.
     * `ASH`: Post-combustion ash cooldown cells and combustible percentage: `ashCount (ashPercent%)`.
     * `MODE`: Currently active render view mode (`BIOMASS`, `THERMAL`, `MOISTURE`, `TOPO`).
-  * A lightweight mini-canvas sparkline renders rolling trends of Active Burning Cells vs. Healthy Forest Biomass over the trailing 150 ticks.
+  * A wide mini-canvas sparkline renders rolling trends of Active Burning Cells, Forest Canopy, Grass Pioneer, and Ash Cooldown over the trailing 150 ticks.
 * **REQ-UI-06 (Interactive Wind Controller):**
   * An intuitive circular indicator/dial allowing direct click-and-drag manipulation of wind heading $\theta$ and speed magnitude $v$.
 * **REQ-UI-07 (Presenter Keyboard Shortcuts):**
@@ -220,15 +222,15 @@ stateDiagram-v2
     * `KeyR`: Reset simulation to active preset
     * `Digit1` to `Digit4`: Switch viewport modes (Biomass, Thermal, Moisture, Topo)
     * `KeyB`: Cycle active god-mode brush
-    * `KeyT`: Trigger rapid 500-tick performance benchmark (displays engine TPS)
+    * `KeyT`: Trigger rapid 1000-tick performance benchmark (displays engine TPS)
 
 ---
 
 ### 2.4 Telemetry, Logging & Data Science Export (REQ-LOG)
 
 * **REQ-LOG-01 (Zero-Allocation In-Memory Telemetry Ring Buffer):**
-  * Pre-allocated circular ring buffer (default capacity: 5,000 records) to eliminate dynamic array allocations and garbage collection pauses during long-running presentations.
-  * Logging cadence selectable: every 1, 2, or 5 ticks.
+  * Pre-allocated circular ring buffer (default capacity: 50,000 records, automatically dynamically doubling when exceeded) to eliminate dynamic array allocations and garbage collection pauses while ensuring every single tick is captured.
+  * Continuous per-tick logging across all playback speeds.
 * **REQ-LOG-02 (Telemetry Record Schema):**
 
 | Column Name | Type | Description |
@@ -324,21 +326,21 @@ gantt
 4. Implement downwind ember spotting mechanics ($P_{\text{spot}}$) with boundary checking.
 5. **Verification Milestone:** Wildfires realistically trace terrain contours: surging uphill, spreading downwind into elongated burn scars with natural rounded wavefronts, and halting at wet valleys or water bodies.
 
-### Phase 4: Presets, Viewport Modes, On-Canvas HUD, Brushes & Hotkeys
+### Phase 4: Presets, Viewport Modes, On-Canvas HUD, Brushes & Hotkeys — ✅ Complete
 
 1. Implement curated scenario presets matching the REQ-UI-02 parameter matrix.
 2. Implement Viewport Color Modes with dynamic HUD legends: *Biomass* (with animated incandescent fire fronts), *Thermal/Intensity*, *Moisture Heatmap*, and *Topography Shading*.
-3. Implement pointer coordinate re-projection with sub-pixel bounding box scaling and brush radius controls (*Ignite*, *Firebreak*, *Water Drop*, *Reforest*).
-4. Implement on-canvas overlays (stats banner and directional wind arrow) and keyboard shortcuts (REQ-UI-07).
+3. Implement pointer coordinate re-projection with sub-pixel bounding box scaling, border-offset correction, and brush radius controls $[1, 10]$ (*Ignite*, *Firebreak*, *Water Drop*, *Reforest*, *Add Lake*, *Drain Lake*).
+4. Implement stationary on-canvas overlays (stats banner and directional wind arrow) and keyboard shortcuts (REQ-UI-07).
 5. Implement the live Cell Inspector tooltip displaying coordinates, state, moisture, and slope under the cursor.
-6. **Verification Milestone:** Presenter activates "Tactical Defense", uses `Space` to pause, bulldozes a firebreak, inspects local vegetation and moisture metrics, and resumes the sim to demonstrate fire containment.
+6. **Verification Milestone:** Presenter activates "Tactical Defense", uses `Space` to pause, bulldozes a firebreak, carves or drains a lake barrier, inspects local vegetation and moisture metrics, and resumes the sim to demonstrate fire containment.
 
-### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter
+### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter — ✅ Complete
 
 1. Implement pre-allocated in-memory circular ring buffer tracking state populations, cumulative burned cells, wind, and mean moisture without object allocation.
-2. Implement a live mini-canvas HUD sparkline displaying a 150-tick rolling graph of Active Fire vs. Healthy Canopy.
+2. Implement a wide live mini-canvas HUD sparkline displaying a 150-tick rolling graph of Canopy Biomass, Active Fires, Pioneer Grass, and Ash Cooldown.
 3. Implement the `exportToCSV()` RFC 4180 serializer and browser Blob download trigger.
-4. Implement the quick 500-tick performance benchmark mode (`KeyT`).
+4. Implement the quick 1000-tick performance benchmark mode (`KeyT`).
 5. **Verification Milestone:** After running a complex scenario, clicking "Export CSV" immediately triggers a valid, structured `.csv` download containing identical active seed data, validated for direct import into Excel, R, or Python/Pandas.
 
 ---
@@ -660,7 +662,7 @@ classDiagram
 #### 5.3.5 Telemetry & Data Science Export
 
 * **`MetricBuffer` (Zero Garbage-Collection Ring Buffer):**
-  * **Responsibilities:** Pre-allocates a fixed pool of 5,000 `MetricRecord` instances upon initialization. During tick execution, records are populated in-place without object allocation, eliminating GC pauses during presentations.
+  * **Responsibilities:** Pre-allocates a fixed pool of 50,000 `MetricRecord` instances upon initialization (with seamless doubling expansion if long simulations exceed capacity). During tick execution, records are populated in-place without object allocation, eliminating GC pauses during presentations and guaranteeing continuous tick-by-tick logging.
 * **`CSVExporter`:**
   * **Responsibilities:** Serializes ring buffer records into an RFC 4180-compliant string, creates a DOM Blob URL (`text/csv`), and programmatically triggers an automated file download named `wildfire_sim_seed_<SEED>_tick_<TICK>.csv`.
 

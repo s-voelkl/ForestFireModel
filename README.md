@@ -1,6 +1,25 @@
 # Multi-Layer Wildfire Cellular Automaton
 
-Extension and high-performance simulation of the **Drossel and Schwabl Forest-Fire Model**, featuring multi-layer environmental physics: discrete vegetative succession, fuel depletion, continuous moisture fields, procedural topography heightfields, anisotropic screen-space wind vectors, and downwind ember spotting.
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
+[![Zero Build](https://img.shields.io/badge/Build-Zero%20Dependency%20%2F%20file%3A%2F%2F-emerald.svg)](index.html)
+[![FPS](https://img.shields.io/badge/Performance-60%2B%20FPS%20%2F%20300%2B%20TPS-blue.svg)](index.html)
+
+A high-performance, client-side, zero-dependency wildfire simulation extending the **Drossel and Schwabl Forest-Fire Cellular Automaton**. It simulates non-linear ecological succession and anisotropic wildfire propagation across coupled discrete and continuous spatial matrices: vegetative biomass, fuel depletion countdowns, dynamic soil moisture diffusion, procedural elevation gradients, screen-space wind vectors, and downwind ember spotting.
+
+![Simulation of the Multi-Layer Wildfire Cellular Automaton](./assets/images/02-live-game-canyon.png)
+
+---
+
+## 🎮 What is this Simulation?
+
+In classical physics and complex systems theory, the Drossel-Schwabl forest-fire model is a prototypical example of **Self-Organized Criticality (SOC)**: simple rules of continuous tree growth ($p$) and rare spontaneous lightning strikes ($f$) produce power-law distributions of wildfire cluster sizes.
+
+This project takes that theoretical foundation and transforms it into an interactive **wildfire sandbox and tactical containment laboratory**:
+
+- **Ecological Dynamics:** Pioneer grass swiftly recolonizes clearings, slowly maturing into dense forest canopy.
+- **Physical Fire Fronts:** Burning cells consume finite fuel over multiple ticks, radiating heat and evaporating local moisture.
+- **Topographic & Wind Channeling:** Fire surges rapidly uphill while downhill spread is subdued; high winds tilt flame fronts and launch long-distance airborne embers over natural firebreaks.
+- **God-Mode Interactivity:** Act as an incident commander with interactive brushes to ignite test fronts, carve bulldozer firebreaks, drop aerial water retardant, create permanent lake reservoirs, drain existing water bodies, or reforest barren land.
 
 ---
 
@@ -18,6 +37,8 @@ The application is an interactive, zero-dependency browser simulation designed f
   - Slope-assisted fire propagation ($M_{\text{slope}} = \operatorname{clamp}(\exp(2.5 \cdot \nabla E), 0.1, 3.5)$).
   - Screen-space wind vectors ($M_{\text{wind}}$) and long-range ember spotting ($v \ge 2.5$).
   - 4-tier incandescent flame temperature ramp (Smoldering Crimson $\to$ Bright Red $\to$ Orange $\to$ White-Hot).
+- **Consolidated Real-Time Telemetry:** Live rolling multi-curve sparkline tracking Canopy Biomass, Active Fires, Pioneer Grass, and Ash Cooldown in the footer strip.
+- **Tactical God-Mode Toolkit:** 6 specialized brushes (`Ignite`, `Firebreak`, `Water Drop`, `Reforest`, `Add Lake`, `Drain Lake`) with adjustable radius ($1 \dots 10\text{ px}$).
 
 ---
 
@@ -89,16 +110,17 @@ Implementation progress mapped against the Software Requirements Specification i
 - 4 switchable layer modes (`Biomass`, `Thermal`, `Moisture`, `Topography`).
 - Dual-density HUD formatting `[Count (Percentage%)]` for Active Fires, Forest, Grass, and Ash.
 - Interactive polar SVG Wind Rose dial controller with direct pointer manipulation.
-- Interactive God-Mode brushes (`Ignite`, `Firebreak Bulldozer`, `Aerial Water Drop`, `Reforest`) with variable radius ($1 \dots 5\text{ px}$) and hotkey cycling (`KeyB`).
+- Interactive God-Mode brushes (`Ignite`, `Firebreak Bulldozer`, `Aerial Water Drop`, `Reforest`, `Water Reservoir`) with variable radius ($1 \dots 10\text{ px}$) and hotkey cycling (`KeyB`).
 - Sub-pixel DPI-aware canvas pointer re-projection and dynamic hover Cell Inspector HUD overlay.
 - Responsive auto-zoom fit (`object-contain`) and blur-free nearest-neighbor pixelated canvas scaling.
 - Vertically scrollable parameters sidebar (`h-screen overflow-hidden` parent layout containment).
+- Stationary HUD card layout preventing jitter when value lengths shift.
 
 ### Phase 5: Telemetry Engine, Sparkline HUD & CSV Exporter — ✅ Complete
 
-- Headless 500-tick performance benchmark (`KeyT`) sustaining **300+ TPS**.
-- Zero-allocation pre-allocated circular metric ring buffer (`MetricBuffer`, 5,000 capacity).
-- Real-time rolling dual-curve sparkline trend mini-canvas (Canopy Biomass vs. Active Fires).
+- Headless 1000-tick performance benchmark (`KeyT`) sustaining **300+ TPS**.
+- Zero-allocation pre-allocated circular metric ring buffer (`MetricBuffer`, 50,000 capacity with automatic doubling expansion).
+- Real-time rolling multi-curve sparkline trend canvas (Canopy Biomass, Active Fires, Pioneer Grass, Ash Cooldown).
 - Full RFC 4180 CSV serializer & programmatic browser Blob downloader.
 
 ---
@@ -138,14 +160,16 @@ python -m http.server 8000
 | **Play / Pause** | `Space` | Toggle automatic simulation tick advancement |
 | **Step Tick** | `KeyS` | Step forward exactly 1 tick while paused |
 | **Reset Simulation** | `KeyR` | Re-seed and re-generate world using active preset |
-| **Cycle Brush** | `KeyB` | Cycle God-mode brush (Ignite $\to$ Firebreak $\to$ Water Drop $\to$ Reforest) |
-| **Benchmark** | `KeyT` | Run 500 headless steps and display TPS performance |
+| **Cycle Brush** | `KeyB` | Cycle God-mode brush (Ignite $\to$ Firebreak $\to$ Water Drop $\to$ Reforest $\to$ Add Lake $\to$ Drain Lake) |
+| **Benchmark** | `KeyT` | Run 1000 headless steps and display TPS performance |
 | **View Modes** | `1` - `4` | `1`: Biomass, `2`: Thermal, `3`: Moisture, `4`: Topography |
 | **Resolution Toggle** | Button | Switch between Standard ($160 \times 100$) and High-Res ($320 \times 200$) |
 | **Wind Dial** | Click & Drag | Interactive polar dial to adjust wind heading and speed |
-| **God-Mode Brushes** | Click & Drag | Paint on canvas to ignite, clear firebreaks, drop water, or reforest |
+| **God-Mode Brushes** | Click & Drag | Paint on canvas to ignite, clear firebreaks, drop water, reforest, add lakes, or drain lakes |
 | **Cell Inspector** | Hover | Real-time tooltip with coordinates, state, elevation, moisture & fuel |
 | **CSV Telemetry Export** | Button | Download RFC 4180-compliant `.csv` dataset of the run |
+
+![God-mode Brushes](./assets/videos/07-god-mode-brushes.mp4)
 
 ---
 

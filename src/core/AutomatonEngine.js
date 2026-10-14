@@ -255,6 +255,51 @@ class AutomatonEngine {
             }
             break;
           }
+
+          case "addLake":
+          case "lake": {
+            // Carves permanent natural water reservoir and barrier
+            if (s !== STATE.WATER) {
+              if (s === STATE.BURNING) this.activeFires--;
+              else if (s === STATE.FOREST) this.forestCount--;
+              else if (s === STATE.GRASS) this.grassCount--;
+              else if (s === STATE.EMPTY) this.emptyCount--;
+              else if (s === STATE.ASH) this.ashCount--;
+              curr[i] = STATE.WATER;
+              fuel[i] = 0;
+              if (moist) moist[i] = 1.0;
+              if (this.elevationGrid) {
+                // Lower local heightfield below water threshold to match topography
+                this.elevationGrid[i] = Math.min(
+                  this.elevationGrid[i],
+                  SIM_CONFIG.TERRAIN.ELEVATION_WATER_THRESHOLD * 0.8,
+                );
+              }
+            }
+            break;
+          }
+
+          case "drainLake": {
+            // Drains water reservoir cells back to barren EMPTY terrain and restores land elevation
+            if (s === STATE.WATER) {
+              curr[i] = STATE.EMPTY;
+              fuel[i] = 0;
+              this.emptyCount++;
+              if (moist && env) {
+                moist[i] = env.baselineMoisture;
+              } else if (moist) {
+                moist[i] = SIM_CONFIG.TERRAIN.MOISTURE_BASE;
+              }
+              if (this.elevationGrid) {
+                // Raise local elevation above water threshold to solid ground
+                this.elevationGrid[i] = Math.max(
+                  this.elevationGrid[i],
+                  SIM_CONFIG.TERRAIN.ELEVATION_WATER_THRESHOLD + 0.1,
+                );
+              }
+            }
+            break;
+          }
         }
       }
     }
